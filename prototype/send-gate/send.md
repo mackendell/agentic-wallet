@@ -68,6 +68,8 @@ Every message you send follows these rules:
 
    Show the contract only when two assets share a name. Done when the user's latest message is a yes to this exact block. Any change to a line → show the block again.
 
+   **Buttons, when the Host has them.** With a `clarify` tool (Hermes) or `ask_user` tool (OpenClaw), ask the Send check through it: one single-choice question, the block as the question text, choices exactly `Yes` and `No` in the user's language, no other option. Only an answered `Yes` counts as yes. Any other result → show the block as text and ask for a typed yes.
+
 7. **ONLINE.** Call `get_wallet` for this `walletId`. Done when `status` is exactly `ONLINE`. Otherwise stop:
    > Open the CoinWallet App and check wallet "Main" is online. Then reply **done**.
    > I can only send from an online wallet.
