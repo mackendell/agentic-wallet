@@ -38,6 +38,25 @@ The code the wallet creator copies from the App so the agent can join a **Room**
 **First transfer**:
 The end of the **Newbie** journey: the agent submits a transfer from a Mainnet wallet and the user approves it in the App. Mainnet, because the App shows only Mainnet until the user finds a hidden Testnet switch.
 
+**Approval threshold**:
+How many participants must approve a transfer in an **MPC wallet** before it goes out; chosen when the wallet is made, never less than 2 of 2. Whoever submits a transfer approves it with their own shard at the same moment.
+_Avoid_: signatures, quorum
+
+**App approval**:
+A user approving a pending transfer in the CoinWallet App. The real human gate on every agent send.
+
+**Send check**:
+The one-line summary the agent shows in chat, and the user's yes, before every transfer it submits, whether the user or the agent thought of it.
+_Avoid_: review, confirmation
+
+**Gas coin**:
+The native coin of a chain that pays its network fees (TRX on Tron, ETH on Ethereum).
+_Avoid_: fee token
+
+**Remark**:
+A note the agent attaches to a transfer (the MCP `comment`). Kept off-chain.
+_Avoid_: memo (a memo or tag goes on-chain, e.g. an XRP destination tag)
+
 **Task budget**:
 The most tool calls, seconds and tokens a task may use on a **Target model** before it counts as failed.
 
@@ -48,6 +67,7 @@ The most tool calls, seconds and tokens a task may use on a **Target model** bef
 - A **Room** becomes a wallet once the creator finishes creation in the App
 - The agent's instructions name App buttons in the user's language, using the exact text the App shows in that language
 - Every task in the **Newbie** journey has a **Task budget**
+- An agent send needs a **Send check** in chat, then **App approval** from the user and any other participants up to the **Approval threshold**
 
 ## Flagged ambiguities
 
