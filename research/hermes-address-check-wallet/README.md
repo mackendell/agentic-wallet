@@ -25,7 +25,7 @@ Throwaway evidence for the ticket "Reproduce the address check with a wallet pre
 | 4 | v1.0.8 | 32 s | 6 | 189K | $0.010 | No, asked which wallet + asset (correct by the 2+ wallets rule) |
 | 5 | v1.0.8 | 68 s | 9 | 326K | $0.018 | Yes (`clarify` → one-shot auto-pick) |
 | 6 | v1.0.8 | 78 s | 12 | 483K | $0.027 | Yes (`clarify` → one-shot auto-pick) |
-| 7 | v1.0.8 | 218 s | ~30 | — | — | Yes, but via `get_addresses`; currency lookup never worked |
+| 7 | v1.0.8 | 218 s | 25 | 878K | $0.049 | Yes, but via `get_addresses`; currency lookup never worked |
 
 ## Findings
 
