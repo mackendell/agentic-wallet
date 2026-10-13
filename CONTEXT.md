@@ -24,7 +24,15 @@ _Avoid_: server, backend
 
 **Wallet network**:
 Testnet or Mainnet, a property of each wallet (`netType`). One **Service environment** can hold wallets of both networks.
-_Avoid_: env, chain
+_Avoid_: env
+
+**Chain**:
+A blockchain the **MCP service** sends on (Tron, XRP Ledger), named by its code (`TRX`). A token belongs to the **Chain** it lives on. Not the same as **Wallet network**.
+_Avoid_: network, coin
+
+**Chain rules**:
+The checks for one **Chain** the agent runs before the **Send check**: **Gas coin**, reserve or rent, tag or memo, and which token contracts are real. A **Chain** without **Chain rules** can't be sent on.
+
 
 **Room**:
 A wallet being set up in the CoinWallet App before creation is complete. The agent joins a room with an **Invitation code**.
@@ -64,6 +72,7 @@ The most tool calls, seconds and tokens a task may use on a **Target model** bef
 
 - A **Host** connects to one **MCP service**; the **MCP service** runs in one **Service environment**
 - A **Service environment** holds wallets of either **Wallet network**
+- An agent send on a **Chain** needs that **Chain**'s **Chain rules**; the real-contract check applies on Mainnet only
 - A **Room** becomes a wallet once the creator finishes creation in the App
 - The agent names App buttons by the exact text the App shows, in the user's language when the App really translates it, otherwise in English
 - Every task in the **Newbie** journey has a **Task budget**
@@ -73,3 +82,4 @@ The most tool calls, seconds and tokens a task may use on a **Target model** bef
 ## Flagged ambiguities
 
 - "testnet/mainnet" was used for both the **Service environment** (startup flag) and the **Wallet network** (App toggle). These are different: the xlsx shows a Mainnet wallet in the test **Service environment**.
+- "chain" was once used for **Wallet network**. It now means only a **Chain** (a blockchain).
