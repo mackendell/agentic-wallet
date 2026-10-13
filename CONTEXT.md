@@ -43,7 +43,7 @@ How many participants must approve a transfer in an **MPC wallet** before it goe
 _Avoid_: signatures, quorum
 
 **App approval**:
-A user approving a pending transfer in the CoinWallet App. The real human gate on every agent send.
+A user approving a pending transfer or new address in the CoinWallet App. The real human gate on every agent send. A new address needs it because the user's key shard is needed to compute it.
 
 **Send check**:
 The one-line summary the agent shows in chat, and the user's yes, before every transfer it submits, whether the user or the agent thought of it.
@@ -67,6 +67,7 @@ The most tool calls, seconds and tokens a task may use on a **Target model** bef
 - A **Room** becomes a wallet once the creator finishes creation in the App
 - The agent's instructions name App buttons in the user's language, using the exact text the App shows in that language
 - Every task in the **Newbie** journey has a **Task budget**
+- A new address added by the agent needs **App approval** before it can be used
 - An agent send needs a **Send check** in chat, then **App approval** from the user and any other participants up to the **Approval threshold**
 
 ## Flagged ambiguities
