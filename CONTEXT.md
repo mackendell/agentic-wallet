@@ -65,7 +65,7 @@ The most tool calls, seconds and tokens a task may use on a **Target model** bef
 - A **Host** connects to one **MCP service**; the **MCP service** runs in one **Service environment**
 - A **Service environment** holds wallets of either **Wallet network**
 - A **Room** becomes a wallet once the creator finishes creation in the App
-- The agent's instructions name App buttons in the user's language, using the exact text the App shows in that language
+- The agent names App buttons by the exact text the App shows, in the user's language when the App really translates it, otherwise in English
 - Every task in the **Newbie** journey has a **Task budget**
 - A new address added by the agent needs **App approval** before it can be used
 - An agent send needs a **Send check** in chat, then **App approval** from the user and any other participants up to the **Approval threshold**
