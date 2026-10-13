@@ -1,0 +1,12 @@
+# Capture notes (Pixel 6, Android 17, CoinWallet com.coinsdo.wallet 2.0.31+1455)
+- App language list (Settings > Regional > Language): English, 简体中文, 繁體中文, 日本語, Русский, Deutsch, español, 한국인 (8, not 4; Korean label is a typo: 한국인 = "Korean person", should be 한국어).
+- Testnet unlock: Settings > About App, tap the CoinWallet icon 8 times (user-confirmed, matches docs). Toggle hidden until then.
+- Settings has "Notification - Enable push notifications".
+- About App screen title reads "Wallet Settings".
+- Wallet switcher rows: "<name> / Mainnet|Testnet · <shard name>" plus "m/n" badge for MPC wallets.
+- Red top bar = wallet still in setup (Room/claim stage), on Mainnet and Testnet alike. Not a network marker.
+- Invitation code: 6 hex chars (e.g. 4B6B72) + QR + share + copy icons; "Expires in 59:57" countdown = 60 min. Members tab shows creator + "?" Member placeholders. "Create" disabled until members join. Wallet Details tab: MPC Wallet Name, MPC Wallet TEE ID (CoinsDoTee), Approval / Restore threshold.
+- Cancel Creation dialog: "Cancel Wallet Creation?" / No, Return / Yes, Cancel.
+- Claim Key Shard (invitee view): member list with key icons, green tick = claimed, grey = pending; bottom button "Waiting for others". Side panel shows yellow clock on that wallet.
+- Wallet home tabs: Crypto / NFT / Activity.
+- MPC defaults: 2 shards, threshold 2, Environment Mainnet (Testnet radio only when Testnet unlocked). No custody option on Customize screen; shards help text mentions "managed by CoinsDo custody".
