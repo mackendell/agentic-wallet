@@ -34,6 +34,13 @@ _Avoid_: network, coin
 The checks for one **Chain** the agent runs before the **Send check**: **Gas coin**, reserve or rent, tag or memo, and which token contracts are real. A **Chain** without **Chain rules** can't be sent on.
 
 
+**Universal address**:
+The one address a new wallet uses on every EVM **Chain** (the Ethereum path). Every **MPC wallet** the agent works in uses it, so a token on any EVM **Chain** sits on the same address as ETH.
+_Avoid_: default address
+
+**Network address**:
+A per-**Chain** address (its own coin path) that a user can pick only when importing a wallet in the App. Not used by the agent's wallets.
+
 **Room**:
 A wallet being set up in the CoinWallet App before creation is complete. The agent joins a room with an **Invitation code**.
 
