@@ -1,0 +1,12 @@
+{
+  "minimum": "v1.0.8",
+  "tested": {
+    "v1.0.8": {
+      "service-darwin-amd64": "257e69546563a7ed7b63a1ea3aad04df94a9ba5b9af66f644bbb1cea8fa43dac",
+      "service-darwin-arm64": "e82ce35d0a5a9b8de3edaa0092a055434d143f8d4dd2267111bd4f19831e5569",
+      "service-linux-amd64": "c7df2333f20175ca18793a4a514900ff59a7c3929c4d122ed8452f1ad27b9092",
+      "service-linux-arm64": "ff3b06ae9826da77c0d5f01f96246e8d997028664e19d6d796071808f08d1a46"
+    }
+  },
+  "no_fallback": []
+}

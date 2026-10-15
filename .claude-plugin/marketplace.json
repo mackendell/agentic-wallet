@@ -1,0 +1,16 @@
+{
+  "name": "coinsdo",
+  "owner": {
+    "name": "CoinsDo"
+  },
+  "metadata": {
+    "description": "CoinsDo CoinWallet skill for AI agents."
+  },
+  "plugins": [
+    {
+      "name": "coinwallet",
+      "source": "./",
+      "description": "CoinWallet: set up the CoinsDo wallet, join a wallet Room, show addresses and balances, send and approve transfers, show transfer history."
+    }
+  ]
+}
