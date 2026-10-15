@@ -16,6 +16,6 @@ Run each step once, in order, in this chat.
 
 ## Codex traps
 
-- Both commands need the network and write outside this folder. In the sandbox they fail: install says "Download failed", register says "permission denied" or "read-only". Then run the same command again with escalated permissions (outside the sandbox), so the user can approve it. Never change the command.
+- Both commands write outside this folder and install needs the network. In the Codex sandbox they fail: install says "Permission denied" or "Download failed". Then run the same command again with escalated permissions (outside the sandbox), so the user can approve it. Never change the command.
 - Register only with the printed `codex mcp add` line. Never change Codex's config files by hand.
 - The skill folder is `plugins/cache/coinsdo/coinwallet/<version>/skills/coinwallet` inside `~/.codex`. Cards are under its `references/cards/`.

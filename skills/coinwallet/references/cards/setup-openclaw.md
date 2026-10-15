@@ -18,4 +18,3 @@ Run each step once, in order, in this chat.
 
 - Register only with the printed `openclaw mcp set` line. Never run `openclaw mcp add`. Never change OpenClaw's config files by hand.
 - The skill folder is `extensions/coinwallet/skills/coinwallet` inside `~/.openclaw`. Cards are under its `references/cards/`.
-- `coinwallet` tools still missing on the next message → run `openclaw mcp reload` in the terminal, once. Then ask the user to send their message again.

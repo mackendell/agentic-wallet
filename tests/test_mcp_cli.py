@@ -222,6 +222,20 @@ class McpCli(unittest.TestCase):
         self.assertIn("checksum", run.stdout)
         self.assertFalse(box.binary().exists())
 
+    @unittest.skipIf(os.getuid() == 0, "root ignores folder permissions")
+    def test_install_in_a_read_only_sandbox_says_so(self):
+        box = self.box()
+        parent = box.data_dir().parent
+        parent.mkdir(parents=True, exist_ok=True)
+        os.chmod(str(parent), 0o500)  # like a Host sandbox that blocks writes outside the work folder
+        try:
+            code, lines, text = box.mcp("install")
+        finally:
+            os.chmod(str(parent), 0o700)
+        self.assertEqual(code, 1, text)
+        self.assertIn("Permission denied", lines["say"])
+        self.assertNotIn("Traceback", text)
+
     @unittest.skipUnless(IS_MAC, "macOS keychain guard")
     def test_moved_home_without_test_account_is_refused(self):
         box = self.box()

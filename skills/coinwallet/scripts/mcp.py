@@ -624,6 +624,10 @@ def main(argv=None):
         out(result=stop.result, **stop.extra)
         out(say=stop.say)
         return stop.code
+    except PermissionError as exc:  # e.g. a Host sandbox that blocks writes outside the work folder
+        out(result="failed", say="Permission denied for " + str(exc.filename or exc) + ". If commands run in a sandbox, "
+            "run this same command again with full permissions (outside the sandbox).")
+        return 1
     except KeyboardInterrupt:
         out(result="failed", say="Interrupted.")
         return 1
