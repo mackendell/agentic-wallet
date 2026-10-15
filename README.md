@@ -26,7 +26,7 @@ Then ask, in your own language:
 | Claude Code | `claude plugin install coinwallet --marketplace CoinsDo/agentic-wallet` | `claude plugin marketplace remove coinsdo` |
 | Codex | `codex plugin marketplace add CoinsDo/agentic-wallet && codex plugin add coinwallet@coinsdo` | `codex plugin remove coinwallet@coinsdo && codex plugin marketplace remove coinsdo` |
 | Hermes | `hermes skills install CoinsDo/agentic-wallet/skills/coinwallet --yes` | `hermes skills uninstall coinwallet --yes` |
-| OpenClaw | `openclaw plugins install coinwallet --marketplace CoinsDo/agentic-wallet --force` | `openclaw plugins uninstall coinwallet --force` |
+| OpenClaw | `openclaw plugins install coinwallet --marketplace CoinsDo/agentic-wallet --force --accept-capabilities` | `openclaw plugins uninstall coinwallet --force` |
 
 Then ask the agent: "Set up the CoinWallet service."
 
@@ -45,8 +45,16 @@ The user asked you to install the CoinWallet skill from this repo. Do steps 1 to
    | Claude Code | `claude plugin install coinwallet --marketplace CoinsDo/agentic-wallet` |
    | Codex | `codex plugin marketplace add CoinsDo/agentic-wallet && codex plugin add coinwallet@coinsdo` |
    | Hermes | `hermes skills install CoinsDo/agentic-wallet/skills/coinwallet --yes` |
-   | OpenClaw | `openclaw plugins install coinwallet --marketplace CoinsDo/agentic-wallet --force` |
+   | OpenClaw | `openclaw plugins install coinwallet --marketplace CoinsDo/agentic-wallet --force --accept-capabilities` |
 
-2. Open your Host's setup card in the installed `coinwallet` skill and run its steps now: `references/cards/setup-hermes.md`, `setup-claude-code.md`, `setup-codex.md` or `setup-openclaw.md`. It installs and starts the wallet service. Never skip it. On Hermes: `skill_view` with name `coinwallet` and path `references/cards/setup-hermes.md`.
-3. Open `references/cards/join.md` in the same skill and follow it: give the App links and help the user make a wallet Room. Give App links only from that card. If the card is missing, say "The wallet service is set up. Joining a wallet comes with the next skill update." and go to step 4.
+2. Open your Host's setup card in the installed `coinwallet` skill and run its steps now. It installs and starts the wallet service. Never skip it.
+
+   | Host | Setup card |
+   |---|---|
+   | Claude Code | `~/.claude/plugins/cache/coinsdo/coinwallet/<version>/skills/coinwallet/references/cards/setup-claude-code.md` |
+   | Codex | `~/.codex/plugins/cache/coinsdo/coinwallet/<version>/skills/coinwallet/references/cards/setup-codex.md` |
+   | Hermes | `skill_view` with name `coinwallet` and path `references/cards/setup-hermes.md` |
+   | OpenClaw | `~/.openclaw/extensions/coinwallet/skills/coinwallet/references/cards/setup-openclaw.md` |
+
+3. Open `references/cards/join.md` in the same skill and follow it: give the App links and help the user make a wallet Room. Give App links only from that card. If that file does not exist, never search for it anywhere else: say "The wallet service is set up. Joining a wallet comes with the next skill update." and go to step 4.
 4. Claude Code or Codex: end with "Open a new chat and paste your Invitation code there." Hermes or OpenClaw: keep going in this chat.
