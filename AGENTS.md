@@ -18,3 +18,5 @@ Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/age
 - `python3 tests/test_mcp_cli.py` (macOS) and `dev/linux_mcp_tests.sh` (Docker): `scripts/mcp.py` against real MCP releases, in throwaway homes with a throwaway `-u` account.
 - `~/.hermes/hermes-agent/venv/bin/python dev/hermes_scan.py`: Hermes' install security scan; any high/critical finding blocks a release.
 - `python3 dev/hermes_runner.py --case setup --runs 3`: Hermes headless runs, one JSON line per run. `--source local` installs this checkout instead of GitHub `main`.
+  `--case update` seeds an older install and sends "Update CoinWallet" + "yes".
+- `python3 dev/host_runner.py --host openclaw|claude-code|codex --case setup`: the same runs and JSON line on the other Hosts, each in a throwaway HOME (never the user's Host config).

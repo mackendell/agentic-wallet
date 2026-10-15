@@ -4,6 +4,7 @@
 Usage:
   python3 dev/hermes_runner.py --case setup --runs 3 --out runs.jsonl
   python3 dev/hermes_runner.py --case setup --source local    # before a push: skill from this checkout
+  python3 dev/hermes_runner.py --case update --source local   # "Update CoinWallet" + "yes" on a seeded older install
 
 Each run gets a fresh throwaway HOME with a fresh ~/.hermes in it (only the OpenRouter key and a model line).
 macOS: that HOME gets a symlink to the real ~/Library/Keychains (a HOME without it makes macOS offer to reset
@@ -50,6 +51,10 @@ CASES = {
     "setup": {
         "prompts": ["Install the CoinWallet skill from {source}"],
     },
+    # Seeded: an older skill (VERSION 0.0.1, tested MCP v1.0.7) and MCP v1.0.7 registered in Hermes.
+    "update": {
+        "prompts": ["Update CoinWallet", "yes"],
+    },
 }
 
 
@@ -87,11 +92,17 @@ def make_run_dir(base, model, source, repo):
     else:
         install = shlex.quote(HERMES) + ' skills install "$(echo "$3" | sed "s#^[^/]*/agentic-wallet/#' + repo + '/#")" ' + '"${@:4}"'
     shim = bin_dir / "hermes"
+    # local: `hermes skills update coinwallet` also reads this checkout (same patched GitHub fetch).
+    update = ""
+    if source == "local":
+        update = ('if [ "$1" = skills ] && [ "$2" = update ]; then\n  exec ' + shlex.quote(str(HERMES_PY)) + " "
+                  + shlex.quote(str(ROOT / "dev" / "hermes_local_install.py")) + " " + shlex.quote(str(ROOT))
+                  + ' "$@"\nfi\n')
     shim.write_text(
         "#!/bin/bash\n"
         'if [ "$1" = skills ] && [ "$2" = install ] && [[ "$3" == */agentic-wallet/skills/coinwallet* ]]; then\n'
         "  exec " + install + "\n"
-        "fi\n"
+        "fi\n" + update +
         "exec " + shlex.quote(HERMES) + ' "$@"\n', encoding="utf-8")
     os.chmod(str(shim), 0o755)
     return run, home, hermes_home, bin_dir, work
@@ -159,6 +170,11 @@ def probe_registered(hermes_home, home, env):
         entry = None
     if not entry:
         return False, "no mcp_servers.coinwallet in Hermes config"
+    return probe_entry(entry, env)
+
+
+def probe_entry(entry, env):
+    """Start a registered MCP entry ({command, args, env}) with a Host-style small env and call get_wallets."""
     child_env = {k: env[k] for k in ("PATH", "HOME", "USER", "LANG") if env.get(k)}
     child_env.update(entry.get("env") or {})
     try:
@@ -224,6 +240,69 @@ def check_setup(hermes_home, home, env, reply):
     return passed, checks
 
 
+def data_dir(home):
+    if IS_MAC:
+        return home / "Library" / "Application Support" / "coinsdo-wallet-mcp"
+    return home / ".config" / "coinsdo-wallet-mcp"
+
+
+def service_version(binary):
+    run = subprocess.run([str(binary), "-v"], capture_output=True, text=True)
+    match = re.search(r"v\d+\.\d+\.\d+", run.stdout + run.stderr)
+    return match.group(0) if match else None
+
+
+def seed_update(run_dir, home, hermes_home, env, user, source, repo):
+    """An older install: the skill with VERSION 0.0.1 and only MCP v1.0.7 tested, MCP v1.0.7 placed and registered.
+    The registered copy runs as account <user>-host; mcp.py upgrade runs as <user>. On macOS that keeps every
+    keychain item first-made (silent): v1.0.8 never opens an item v1.0.7 made, which would show a popup."""
+    sys.path.insert(0, str(ROOT / "tests"))
+    from test_mcp_cli import HASHES, asset, cached_asset
+    old = run_dir / "old-repo"
+    shutil.copytree(str(ROOT / "skills" / "coinwallet"), str(old / "skills" / "coinwallet"))
+    (old / "skills" / "coinwallet" / "VERSION").write_text("0.0.1\n")
+    (old / "skills" / "coinwallet" / "mcp-tested.json").write_text(json.dumps(
+        {"minimum": "v1.0.7", "tested": {"v1.0.7": HASHES["v1.0.7"]}, "no_fallback": []}))
+    identifier = ("CoinsDo" if source == "local" else repo.split("/")[0]) + "/agentic-wallet/skills/coinwallet"
+    install = subprocess.run([str(HERMES_PY), str(ROOT / "dev" / "hermes_local_install.py"), str(old), "skills",
+                              "install", identifier, "--yes"], env=env, capture_output=True, text=True)
+    if install.returncode or not (hermes_home / "skills" / "coinwallet" / "VERSION").is_file():
+        raise SystemExit("seeding the old skill failed: " + install.stdout[-500:] + install.stderr[-500:])
+    binary = data_dir(home) / "coinwallet" / "service"
+    binary.parent.mkdir(parents=True)
+    shutil.copyfile(str(cached_asset("v1.0.7")), str(binary))
+    os.chmod(str(binary), 0o755)
+    assert asset() in HASHES["v1.0.7"]
+    entry = {"command": str(binary), "args": ["-t", "stdio", "-e", "prod", "-u", user + "-host"]}
+    if not IS_MAC and not Path("/etc/machine-id").is_file():
+        key = data_dir(home) / "master.key"
+        key.write_bytes(os.urandom(32))
+        os.chmod(str(key), 0o600)
+        entry["env"] = {"COINSDO_MASTER_KEY_FILE": str(key)}
+    subprocess.run([HERMES, "config", "set", "mcp_servers.coinwallet", json.dumps(entry)], env=env,
+                   capture_output=True, text=True, check=True)
+    return binary
+
+
+def check_update(home, hermes_home, env, binary, before_yes, replies):
+    skill = hermes_home / "skills" / "coinwallet"
+    backups = sorted((data_dir(home) / "backups").glob("*/coinwallet/service"))
+    check = subprocess.run([sys.executable, str(skill / "scripts" / "mcp.py"), "check"], env=env,
+                           capture_output=True, text=True, timeout=300)
+    checks = {
+        "nothing_changed_before_yes": before_yes == ("v1.0.7", "0.0.1"),
+        "asked_first": "?" in (replies[0] if replies else ""),
+        "skill_updated": (skill / "VERSION").read_text().strip() == (ROOT / "skills" / "coinwallet" / "VERSION").read_text().strip(),
+        "mcp_upgraded": service_version(binary) == "v1.0.8",
+        "backup_before_upgrade": any(service_version(path) == "v1.0.7" for path in backups),
+        "mcp_check_ok": "result: ok" in check.stdout,
+        "says_new_chat": "new chat" in (replies[-1] if replies else "").lower(),
+    }
+    if IS_MAC:
+        checks["keychain_warning"] = "always allow" in (replies[0] if replies else "").lower()
+    return all(checks.values()), checks
+
+
 def session_cost(hermes_home, session):
     try:
         db = sqlite3.connect(str(hermes_home / "state.db"))
@@ -242,7 +321,8 @@ def one_run(args, number, base):
     # local: the README file stands in for the GitHub landing page (which shows the README).
     source = str(ROOT / "README.md") if args.source == "local" else "https://github.com/" + args.repo
     prompts = [p.format(source=source) for p in CASES[args.case]["prompts"]] + list(args.reply or [])
-    session, events, secs, timed_out = None, [], 0.0, False
+    binary = seed_update(run_dir, home, hermes_home, env, user, args.source, args.repo) if args.case == "update" else None
+    session, events, secs, timed_out, replies, before_yes = None, [], 0.0, False, [], None
     for prompt in prompts:
         turn, turn_secs, turn_timeout = hermes_turn(prompt, env, work, args.model, session, args.timeout)
         events += turn
@@ -251,6 +331,9 @@ def one_run(args, number, base):
         for event in turn:
             if event.get("session_id"):
                 session = event["session_id"]
+        replies.append(next((e.get("text", "") for e in reversed(turn) if e.get("type") == "result"), ""))
+        if binary and before_yes is None:
+            before_yes = (service_version(binary), (hermes_home / "skills" / "coinwallet" / "VERSION").read_text().strip())
         if turn_timeout:
             break
     (run_dir / "events.jsonl").write_text("\n".join(json.dumps(e) for e in events) + "\n", encoding="utf-8")
@@ -263,7 +346,10 @@ def one_run(args, number, base):
         for path in skill_files(event):
             if path not in files:
                 files.append(path)
-    passed, checks = check_setup(hermes_home, home, env, reply) if args.case == "setup" else (None, {})
+    if args.case == "setup":
+        passed, checks = check_setup(hermes_home, home, env, reply)
+    else:
+        passed, checks = check_update(home, hermes_home, env, binary, before_yes, replies)
     cost_row = session_cost(hermes_home, session) if session else None
     budget = BUDGETS.get(args.case, {})
     record = {
@@ -274,7 +360,7 @@ def one_run(args, number, base):
         "cost_usd": round(cost_row[0], 5) if cost_row and cost_row[0] is not None else None,
         "api_calls": cost_row[2] if cost_row else None,
         "skill_files_read": files, "tools": [e.get("name") for e in tool_uses],
-        "reply": reply[:600], "budget": budget,
+        "reply": reply[:600], "replies": [r[:600] for r in replies] if len(replies) > 1 else None, "budget": budget,
         "within_budget": bool(budget) and len(tool_uses) <= budget["calls"] and secs <= budget["secs"]
         and tokens["total"] <= budget["tokens"],
         "session": session, "transcript": str(run_dir / "events.jsonl"), "service_account": user,
