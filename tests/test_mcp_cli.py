@@ -85,13 +85,38 @@ class Sandbox:
             os.symlink(str(REAL_HOME / "Library" / "Keychains"), str(self.home / "Library" / "Keychains"))
         self.skill = self.root / "coinwallet"
         shutil.copytree(str(SKILL), str(self.skill))
+        self.assets = self.root / "assets"  # local release assets: real cached ones plus fake builds
+        for version in HASHES:
+            (self.assets / version).mkdir(parents=True)
+            os.symlink(str(cached_asset(version)), str(self.assets / version / asset()))
         if tested or minimum:
-            data = json.loads((self.skill / "mcp-tested.json").read_text())
-            if tested:
-                data["tested"] = {v: HASHES[v] for v in tested}
-            if minimum:
-                data["minimum"] = minimum
-            (self.skill / "mcp-tested.json").write_text(json.dumps(data))
+            self.set_tested(tested, minimum)
+
+    def set_tested(self, tested=None, minimum=None, no_fallback=None, extra=None):
+        """Rewrite this copy's mcp-tested.json. extra: {version: sha256} for fake builds."""
+        data = json.loads((self.skill / "mcp-tested.json").read_text())
+        if tested:
+            data["tested"] = {v: HASHES[v] for v in tested}
+        for version, digest in (extra or {}).items():
+            data["tested"][version] = {asset(): digest}
+        if minimum:
+            data["minimum"] = minimum
+        if no_fallback is not None:
+            data["no_fallback"] = no_fallback
+        (self.skill / "mcp-tested.json").write_text(json.dumps(data))
+
+    def fake_build(self, version, stderr="boom: the service cannot start"):
+        """A build that reports `version` and exits 1 on start (stands in for a broken MCP release)."""
+        path = self.assets / version / asset()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("#!/bin/sh\nif [ \"$1\" = -v ]; then echo 'service version " + version + "'; exit 0; fi\n"
+                        "echo '" + stderr + "' >&2\nexit 1\n")
+        os.chmod(str(path), 0o755)
+        return sha(path)
+
+    def backups(self):
+        folder = self.data_dir() / "backups"
+        return sorted(folder.iterdir()) if folder.is_dir() else []
 
     def data_dir(self):
         if IS_MAC:
@@ -107,10 +132,10 @@ class Sandbox:
         assert not IS_MAC or (self.home / "Library" / "Keychains").exists()
         return env
 
-    def mcp(self, *args, local=True):
-        argv = [sys.executable, str(self.skill / "scripts" / "mcp.py")] + list(args) + ["--user", USER]
-        if local and args[0] == "install":
-            argv += ["--local-dir", str(ASSETS)]
+    def mcp(self, *args, local=True, user=USER):
+        argv = [sys.executable, str(self.skill / "scripts" / "mcp.py")] + list(args) + ["--user", user]
+        if local and args[0] in ("install", "upgrade", "fallback"):
+            argv += ["--local-dir", str(self.assets)]
         run = subprocess.run(argv, capture_output=True, text=True, env=self.env(), timeout=400)
         lines = {}
         for line in run.stdout.splitlines():
@@ -187,10 +212,10 @@ class McpCli(unittest.TestCase):
 
     def test_install_rejects_wrong_checksum(self):
         box = self.box()
-        fake = box.root / "assets" / "v1.0.8"
+        fake = box.root / "bad-assets" / "v1.0.8"
         fake.mkdir(parents=True)
         shutil.copyfile(str(cached_asset("v1.0.7")), str(fake / asset()))
-        argv = [sys.executable, str(box.skill / "scripts" / "mcp.py"), "install", "--local-dir", str(box.root / "assets"),
+        argv = [sys.executable, str(box.skill / "scripts" / "mcp.py"), "install", "--local-dir", str(box.root / "bad-assets"),
                 "--user", USER]
         run = subprocess.run(argv, capture_output=True, text=True, env=box.env(), timeout=120)
         self.assertEqual(run.returncode, 1, run.stdout)
@@ -259,6 +284,192 @@ class McpCli(unittest.TestCase):
             host.stdin.close()
             host.terminate()
             host.wait(timeout=10)
+
+    # register with each Host
+
+    def test_register_command_per_host(self):
+        box = self.box()
+        code, _, text = box.mcp("install")
+        self.assertEqual(code, 0, text)
+        binary = str(box.binary())
+        for host, start in (("hermes", "hermes config set mcp_servers.coinwallet "),
+                            ("openclaw", "openclaw mcp set coinwallet "),
+                            ("claude-code", "claude mcp remove --scope user coinwallet >/dev/null 2>&1; "
+                                            "claude mcp add-json --scope user coinwallet "),
+                            ("codex", "codex mcp add coinwallet ")):
+            code, lines, text = box.mcp("install", "--host", host)  # second install: left as is, register printed
+            self.assertEqual(code, 0, text)
+            register = lines["register"]
+            self.assertTrue(register.startswith(start), register)
+            self.assertIn(binary, register)
+            self.assertIn("prod", register)
+            self.assertIn(USER, register)
+
+    def test_register_command_runs_in_a_throwaway_host_config(self):
+        """Run each printed line for real, with HOME = the throwaway home (never the user's Host config)."""
+        box = self.box()
+        code, _, text = box.mcp("install")
+        self.assertEqual(code, 0, text)
+        key = box.data_dir() / "master.key"
+        ran = 0
+        for host, tool in (("openclaw", "openclaw"), ("claude-code", "claude"), ("codex", "codex")):
+            if not shutil.which(tool):
+                continue
+            _, lines, _ = box.mcp("install", "--host", host)
+            run = subprocess.run(["/bin/sh", "-c", lines["register"]], capture_output=True, text=True,
+                                 env=box.env(), cwd=str(box.root), stdin=subprocess.DEVNULL, timeout=120)
+            self.assertEqual(run.returncode, 0, host + ": " + run.stdout + run.stderr)
+            if host == "openclaw":
+                entry = json.loads((box.home / ".openclaw" / "openclaw.json").read_text())["mcp"]["servers"]["coinwallet"]
+            elif host == "claude-code":
+                subprocess.run(["/bin/sh", "-c", lines["register"]], capture_output=True, env=box.env(),
+                               cwd=str(box.root), stdin=subprocess.DEVNULL, timeout=120)  # twice: no "already exists"
+                entry = json.loads((box.home / ".claude.json").read_text())["mcpServers"]["coinwallet"]
+            else:
+                toml = (box.home / ".codex" / "config.toml").read_text()
+                self.assertIn("[mcp_servers.coinwallet]", toml)
+                self.assertIn(str(box.binary()), toml)
+                if key.exists():
+                    self.assertIn(str(key), toml)
+                ran += 1
+                continue
+            self.assertEqual(entry["command"], str(box.binary()))
+            self.assertEqual(entry["args"][:4], ["-t", "stdio", "-e", "prod"])
+            if key.exists():
+                self.assertEqual(entry["env"]["COINSDO_MASTER_KEY_FILE"], str(key))
+            ran += 1
+        if not ran:
+            self.skipTest("no openclaw, claude or codex on this machine")
+
+    # upgrade
+
+    def test_upgrade_backs_up_then_restarts_newest_tested(self):
+        box = self.box(tested=["v1.0.7"], minimum="v1.0.7")
+        if IS_MAC:
+            # A v1.0.7 start would make the keychain item, and v1.0.8 would then show the popup (needs a person).
+            # So v1.0.7 is only placed here; the Linux run below starts it on real data.
+            box.place("v1.0.7")
+            marker = box.data_dir() / ".data" / "marker"
+            marker.parent.mkdir(parents=True)
+            marker.write_text("wallet data")
+        else:
+            code, _, text = box.mcp("install")
+            self.assertEqual(code, 0, text)
+            marker = next(box.data_dir().glob(".data/**/*.db"))
+        key = box.data_dir() / "master.key"
+        key_before = sha(key) if key.exists() else None
+        box.set_tested(["v1.0.7", "v1.0.8"])
+        code, lines, text = box.mcp("upgrade")
+        self.assertEqual(code, 0, text)
+        self.assertEqual(lines["result"], "ok", text)
+        self.assertEqual(lines["mcp"], "upgraded v1.0.7 -> v1.0.8")
+        self.assertEqual(lines["wallets"], "0")  # restarted right away and get_wallets answered
+        self.assertEqual(box.version(), "v1.0.8")
+        backup = Path(lines["backup"])
+        self.assertEqual(box.backups(), [backup])
+        self.assertEqual(sha(backup / "coinwallet" / "service"), HASHES["v1.0.7"][asset()])
+        self.assertTrue((backup / marker.relative_to(box.data_dir())).is_file())
+        self.assertFalse((backup / "backups").exists())
+        if key_before:
+            self.assertEqual(sha(key), key_before)  # same master key on Linux
+        code, lines, text = box.mcp("check")
+        self.assertEqual(code, 0, text)
+        self.assertEqual(lines["version"], "v1.0.8")
+
+    def test_upgrade_stops_the_host_copy_first(self):
+        box = self.box(tested=["v1.0.7"], minimum="v1.0.7")
+        if IS_MAC:
+            box.place("v1.0.7")
+        else:
+            code, _, text = box.mcp("install")  # Linux: makes the master key file when there is no machine-id
+            self.assertEqual(code, 0, text)
+        box.set_tested(["v1.0.7", "v1.0.8"])
+        env = box.env()
+        key = box.data_dir() / "master.key"
+        if key.exists():
+            env["COINSDO_MASTER_KEY_FILE"] = str(key)
+        # The Host's copy holds the data folder lock. It runs under another throwaway account so that on macOS
+        # the v1.0.8 start under USER makes a fresh keychain item (silent) instead of showing a popup.
+        host = subprocess.Popen([str(box.binary()), "-t", "stdio", "-e", "prod", "-u", USER + "-host"],
+                                stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+        try:
+            time.sleep(3)
+            self.assertIsNone(host.poll(), "the Host copy did not start")
+            code, lines, text = box.mcp("upgrade")
+            self.assertEqual(code, 0, text)
+            self.assertEqual(lines["result"], "ok", text)
+            self.assertEqual(lines["wallets"], "0")
+            self.assertIsNotNone(host.poll(), "the Host copy is still running")
+        finally:
+            host.stdin.close()
+            if host.poll() is None:
+                host.terminate()
+            host.wait(timeout=10)
+
+    def test_upgrade_leaves_newest_alone(self):
+        box = self.box()
+        code, _, text = box.mcp("install")
+        self.assertEqual(code, 0, text)
+        before = sha(box.binary())
+        code, lines, text = box.mcp("upgrade")
+        self.assertEqual(code, 0, text)
+        self.assertIn("already v1.0.8", lines["mcp"])
+        self.assertEqual(sha(box.binary()), before)
+        self.assertEqual(box.backups(), [])
+
+    def test_upgrade_not_installed(self):
+        box = self.box()
+        code, lines, text = box.mcp("upgrade")
+        self.assertEqual(code, 1, text)
+        self.assertIn("not installed", lines["say"])
+
+    # fallback
+
+    def test_failed_upgrade_falls_back_to_previous_tested_on_same_data(self):
+        box = self.box()
+        code, _, text = box.mcp("install")  # v1.0.8 on real data
+        self.assertEqual(code, 0, text)
+        key = box.data_dir() / "master.key"
+        key_before = sha(key) if key.exists() else None
+        box.set_tested(extra={"v1.0.9": box.fake_build("v1.0.9")})
+        code, lines, text = box.mcp("upgrade")
+        self.assertEqual(code, 0, text)
+        self.assertEqual(lines["result"], "fallback", text)
+        self.assertIn("went back to v1.0.8", lines["mcp"])
+        self.assertIn("boom", lines["mcp"])
+        self.assertEqual(lines["wallets"], "0")  # the wallet data is still readable
+        self.assertEqual(sha(box.binary()), HASHES["v1.0.8"][asset()])
+        self.assertEqual(len(box.backups()), 2)  # before the upgrade, and before going back
+        self.assertEqual(sha(box.backups()[0] / "coinwallet" / "service"), HASHES["v1.0.8"][asset()])
+        if key_before:
+            self.assertEqual(sha(key), key_before)
+        code, lines, text = box.mcp("check")
+        self.assertEqual(code, 0, text)
+        self.assertEqual(lines["version"], "v1.0.8")
+
+    def test_failed_upgrade_without_fallback_stops(self):
+        box = self.box()
+        code, _, text = box.mcp("install")
+        self.assertEqual(code, 0, text)
+        box.set_tested(extra={"v1.0.9": box.fake_build("v1.0.9")}, no_fallback=["v1.0.9"])
+        code, lines, text = box.mcp("upgrade")
+        self.assertEqual(code, 1, text)
+        self.assertEqual(lines["result"], "failed")
+        self.assertIn("no tested version to go back to", lines["say"])
+        self.assertIn(str(box.backups()[0]), lines["say"])
+        self.assertEqual(box.version(), "v1.0.9")  # left as is; the user and maintainer decide
+
+    @unittest.skipIf(IS_MAC, "v1.0.7 opening a keychain item v1.0.8 made shows a popup (needs a person)")
+    def test_fallback_command_reinstalls_previous_tested(self):
+        box = self.box(tested=["v1.0.7", "v1.0.8"], minimum="v1.0.7")
+        code, _, text = box.mcp("install")  # v1.0.8
+        self.assertEqual(code, 0, text)
+        code, lines, text = box.mcp("fallback")
+        self.assertEqual(code, 0, text)
+        self.assertEqual(lines["result"], "fallback", text)
+        self.assertEqual(box.version(), "v1.0.7")
+        self.assertEqual(lines["wallets"], "0")
+        self.assertEqual(len(box.backups()), 1)
 
     # Linux master key
 
