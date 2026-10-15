@@ -19,8 +19,21 @@ real keychain items are never used. Each macOS run leaves one test keychain item
 Turns after the first are fixed scripted replies, sent by resuming the same session
 (`hermes chat --oneshot --format stream-json --resume <id>`). Never rely on one-shot `clarify`: it auto-answers.
 
-Record: case, host, model, source, run, ok, checks, calls, secs, tokens (+ non-cached), cost, skill files read,
-tools used, reply (short), budget and within_budget.
+Cases after setup (dev/test_cases.py) start as after a finished setup: the skill installed (--source) and the
+`coinwallet` MCP server registered as dev/mcp_proxy.py, which logs every tool call and enforces the fixture's policy:
+  fresh      a throwaway HTTP service, new -u account per invocation, 0 wallets, read tools only
+  agenttest  the running `-e prod -u agenttest` HTTP service (--agenttest-url), read tools only
+  own        a throwaway HTTP service kept in --own-home/--own-user for Rooms made in the App; join + add_address
+Human steps (make a Room, finish it in the App) wait for Enter, or for --wait-file to appear (its text = the value).
+  python3 dev/hermes_runner.py --case join --runs 1 --source local --set code=9F3A0C --wait-file /tmp/w
+  python3 dev/hermes_runner.py --case add-address --source local --set wallet=<name of an ONLINE own wallet>
+
+Note: `--oneshot` makes Hermes use its weaker one-shot skill guidance ("load a skill only when it carries domain
+knowledge you lack"), so skill loading is harder here than in a real chat, and Hermes shows only the first 57
+characters of the skill description.
+
+Record: case, host, model, source, run, ok, checks, calls (Host tool calls), mcp_calls, secs, tokens
+(+ non-cached), cost, skill files read, tools used, prompts, replies, budget and within_budget.
 """
 import argparse
 import json
@@ -29,6 +42,7 @@ import re
 import selectors
 import shlex
 import shutil
+import socket
 import sqlite3
 import subprocess
 import sys
@@ -43,14 +57,12 @@ HERMES = shutil.which("hermes") or str(REAL_HOME / ".local" / "bin" / "hermes")
 HERMES_AGENT = Path(os.environ.get("HERMES_AGENT_DIR", str(REAL_HOME / ".hermes" / "hermes-agent")))
 HERMES_PY = HERMES_AGENT / "venv" / "bin" / "python"
 
-# Task budget, worst of 3 runs on DeepSeek Flash (spec #29).
-BUDGETS = {"setup": {"calls": 10, "secs": 180, "tokens": 150_000}}
+sys.path.insert(0, str(ROOT / "dev"))
+from mcp_proxy import HttpMcp  # noqa: E402
+from test_cases import CASES  # noqa: E402
 
-CASES = {
-    "setup": {
-        "prompts": ["Install the CoinWallet skill from {source}"],
-    },
-}
+PROXY = ROOT / "dev" / "mcp_proxy.py"
+AGENTTEST_URL = "http://localhost:18081/mcp"  # the existing -e prod -u agenttest service (HTTP), read tools only
 
 
 def openrouter_key():
@@ -235,50 +247,222 @@ def session_cost(hermes_home, session):
         return None
 
 
-def one_run(args, number, base):
+# ---------- fixtures for cases after setup ----------
+
+def free_port():
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+class ThrowawayService:
+    """The real MCP binary as an HTTP service under a throwaway account (-u) and a throwaway HOME.
+    macOS: that HOME links the real ~/Library/Keychains, so the account's item lands there (one per account)."""
+
+    def __init__(self, svc_home, user):
+        self.home, self.user = Path(svc_home), user
+        self.home.mkdir(parents=True, exist_ok=True)
+        if IS_MAC and not (self.home / "Library" / "Keychains").exists():
+            (self.home / "Library").mkdir(exist_ok=True)
+            os.symlink(str(REAL_HOME / "Library" / "Keychains"), str(self.home / "Library" / "Keychains"))
+        base = self.home / "Library" / "Application Support" if IS_MAC else self.home / ".config"
+        self.binary = base / "coinsdo-wallet-mcp" / "coinwallet" / "service"
+        self.env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(self.home),
+                    "USER": os.environ.get("USER", ""), "LANG": "en_US.UTF-8", "COINWALLET_TEST_USER": user}
+        self.proc, self.url = None, None
+
+    def start(self):
+        if not self.binary.is_file():
+            run = subprocess.run([sys.executable, str(ROOT / "skills" / "coinwallet" / "scripts" / "mcp.py"), "install"],
+                                 env=self.env, capture_output=True, text=True, timeout=600)
+            if "result: ok" not in run.stdout:
+                raise SystemExit("throwaway service install failed:\n" + run.stdout + run.stderr)
+        port = free_port()
+        self.url = "http://127.0.0.1:" + str(port) + "/mcp"
+        self.log = open(str(self.home / ("service-" + self.user + ".log")), "ab")
+        self.proc = subprocess.Popen([str(self.binary), "-t", "http", "-p", str(port), "-e", "prod", "-u", self.user],
+                                     env=self.env, cwd=str(self.binary.parent), stdout=self.log, stderr=self.log)
+        deadline = time.monotonic() + 150
+        while time.monotonic() < deadline:
+            if self.proc.poll() is not None:
+                raise SystemExit("throwaway service exited, see " + self.log.name)
+            try:
+                HttpMcp(self.url).connect().call("get_wallets")
+                return self.url
+            except Exception:  # noqa: BLE001 - not listening yet or still uninitialized
+                time.sleep(1)
+        raise SystemExit("throwaway service did not answer, see " + self.log.name)
+
+    def stop(self):
+        if self.proc and self.proc.poll() is None:
+            self.proc.terminate()
+            try:
+                self.proc.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+        if self.proc:
+            self.log.close()
+
+
+def read_truth(url, balances_for=()):
+    """Service state, read tools only: wallets, every ONLINE wallet's addresses, balances of the named wallets."""
+    client = HttpMcp(url).connect()
+    wallets = (client.call("get_wallets") or {}).get("items") or []
+    truth = {"wallets": wallets, "addresses": {}, "balances": {}}
+    for wallet in wallets:
+        if wallet.get("status") != "ONLINE":
+            continue
+        reply = client.call("get_addresses", {"walletId": wallet["walletId"], "pageIndex": 1, "pageSize": 100})
+        items = (reply.get("items") if isinstance(reply, dict) else None) or []
+        truth["addresses"][wallet["walletId"]] = items
+        if balances_for == "all" or wallet["walletId"] in balances_for:
+            for item in items:
+                truth["balances"][item["addressId"]] = None  # stays None if the backend keeps failing
+                for _ in range(6):  # the balance backend sometimes answers ErrCodeNet1004 for a while
+                    try:
+                        truth["balances"][item["addressId"]] = client.call(
+                            "get_address_balance", {"addressId": item["addressId"]}).get("balance")
+                        break
+                    except RuntimeError:
+                        time.sleep(3)
+    return truth
+
+
+def preinstall(args, env, hermes_home, url, policy, hide, mcp_log):
+    """Skill installed and the coinwallet MCP server registered (through the proxy), as after a finished setup."""
+    if args.source == "local":
+        argv = [str(HERMES_PY), str(ROOT / "dev" / "hermes_local_install.py"), str(ROOT),
+                "skills", "install", "CoinsDo/agentic-wallet/skills/coinwallet", "--yes"]
+    else:
+        argv = [HERMES, "skills", "install", args.repo + "/skills/coinwallet", "--yes"]
+    run = subprocess.run(argv, env=env, capture_output=True, text=True, timeout=300)
+    if not (hermes_home / "skills" / "coinwallet" / "SKILL.md").is_file():
+        raise SystemExit("skill install failed:\n" + run.stdout[-2000:] + run.stderr[-2000:])
+    proxy_args = [str(PROXY), "--url", url, "--policy", policy, "--log", str(mcp_log)]
+    for wallet_id in hide:
+        proxy_args += ["--hide-wallet", str(wallet_id)]
+    entry = json.dumps({"command": sys.executable, "args": proxy_args})
+    run = subprocess.run([HERMES, "config", "set", "mcp_servers.coinwallet", entry], env=env,
+                         capture_output=True, text=True, timeout=60)
+    if run.returncode:
+        raise SystemExit("hermes config set failed: " + run.stdout + run.stderr)
+
+
+def read_log(path):
+    if not Path(path).is_file():
+        return []
+    return [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+class NeedsHuman(Exception):
+    pass
+
+
+WAIT_FILE = None  # --wait-file: a helper (or a phone-driving agent) creates this file instead of pressing Enter
+
+
+def human_value(text):
+    if WAIT_FILE:
+        sys.stderr.write("\n[human] " + text + " (waiting for " + WAIT_FILE + ")\n")
+        sys.stderr.flush()
+        while not Path(WAIT_FILE).exists():
+            time.sleep(2)
+        value = Path(WAIT_FILE).read_text(encoding="utf-8").strip()
+        Path(WAIT_FILE).unlink()
+        return value
+    if not sys.stdin.isatty():
+        raise NeedsHuman(text)
+    sys.stderr.write("\n[human] " + text)
+    sys.stderr.flush()
+    return input().strip()
+
+
+def one_run(args, number, base, services):
+    case = CASES[args.case]
+    fixture = case["fixture"]
     user = "cwr-" + time.strftime("%Y%m%d%H%M%S") + "-" + str(number)
     run_dir, home, hermes_home, bin_dir, work = make_run_dir(base, args.model, args.source, args.repo)
     env = run_env(home, hermes_home, bin_dir, user)
     # local: the README file stands in for the GitHub landing page (which shows the README).
     source = str(ROOT / "README.md") if args.source == "local" else "https://github.com/" + args.repo
-    prompts = [p.format(source=source) for p in CASES[args.case]["prompts"]] + list(args.reply or [])
-    session, events, secs, timed_out = None, [], 0.0, False
-    for prompt in prompts:
-        turn, turn_secs, turn_timeout = hermes_turn(prompt, env, work, args.model, session, args.timeout)
-        events += turn
+    values = dict(case.get("values", {}))
+    values.update(dict(item.split("=", 1) for item in (args.set or [])))
+    values["source"] = source
+    mcp_log = run_dir / "mcp.jsonl"
+    url = None
+    if fixture != "install":
+        url = args.agenttest_url if fixture == "agenttest" else services[fixture].url
+        preinstall(args, env, hermes_home, url, "own" if fixture == "own" else "read", case.get("hide", []), mcp_log)
+    truth = read_truth(url, "all" if case.get("balances") else ()) if url else {}
+    if case.get("hide"):
+        truth["wallets"] = [w for w in truth["wallets"] if w["walletId"] not in case["hide"]]
+    turns = list(case["turns"]) + list(args.reply or [])
+    session, events, secs, timed_out, replies, marks, sent = None, [], 0.0, False, [], [], []
+    for turn in turns:
+        if isinstance(turn, dict):
+            if "ask" in turn:
+                values[turn["key"]] = values.get(turn["key"]) or human_value(turn["ask"])
+            else:
+                human_value(turn["wait"])
+            continue
+        prompt = turn.format(**values)
+        sent.append(prompt if "{code}" not in turn else turn)
+        events_turn, turn_secs, turn_timeout = hermes_turn(prompt, env, work, args.model, session, args.timeout)
+        events += events_turn
         secs += turn_secs
         timed_out = timed_out or turn_timeout
-        for event in turn:
+        for event in events_turn:
             if event.get("session_id"):
                 session = event["session_id"]
+        results_turn = [e for e in events_turn if e.get("type") == "result"]
+        replies.append(results_turn[-1].get("text", "") if results_turn else "")
+        marks.append(len(read_log(mcp_log)))
         if turn_timeout:
             break
     (run_dir / "events.jsonl").write_text("\n".join(json.dumps(e) for e in events) + "\n", encoding="utf-8")
     tool_uses = [e for e in events if e.get("type") == "tool_use"]
     results = [e for e in events if e.get("type") == "result"]
     tokens = {k: sum((r.get("tokens") or {}).get(k, 0) for r in results) for k in ("input", "output", "total", "cache_read")}
-    reply = results[-1].get("text", "") if results else ""
+    reply = replies[-1] if replies else ""
     files = []
     for event in tool_uses:
         for path in skill_files(event):
             if path not in files:
                 files.append(path)
-    passed, checks = check_setup(hermes_home, home, env, reply) if args.case == "setup" else (None, {})
+    mcp = read_log(mcp_log)
+    if args.case == "setup":
+        passed, checks = check_setup(hermes_home, home, env, reply)
+    else:
+        ctx = {"card": case.get("card"), "lang": case.get("lang"), "mcp": mcp, "mcp_by_turn": [mcp[(marks[i - 1] if i else 0):m] for i, m in enumerate(marks)],
+               "replies": replies, "truth": truth, "values": values, "files": files,
+               "tool_inputs": [(e.get("name"), e.get("input")) for e in tool_uses],
+               "truth_after": read_truth(url) if fixture == "own" else {}}
+        try:
+            checks = case["check"](ctx)
+        except Exception as exc:  # noqa: BLE001 - a broken fixture or reply shape is a failed run, not a crash
+            checks = {"check_crashed: " + repr(exc)[:200]: False}
+        passed = all(checks.values())
     cost_row = session_cost(hermes_home, session) if session else None
-    budget = BUDGETS.get(args.case, {})
+    budget = case.get("budget", {})
+    if fixture == "install":
+        account = user
+    elif fixture == "agenttest":
+        account = "agenttest (read tools only)"
+    else:
+        account = services[fixture].user
     record = {
         "case": args.case, "host": "hermes", "model": args.model, "source": args.source, "run": number,
         "ok": bool(passed) and not timed_out, "checks": checks, "timed_out": timed_out,
-        "calls": len(tool_uses), "secs": round(secs, 1), "tokens": tokens["total"],
-        "tokens_uncached": tokens["total"] - tokens["cache_read"],
+        "calls": len(tool_uses), "mcp_calls": [e["tool"] for e in mcp], "secs": round(secs, 1),
+        "tokens": tokens["total"], "tokens_uncached": tokens["total"] - tokens["cache_read"],
         "cost_usd": round(cost_row[0], 5) if cost_row and cost_row[0] is not None else None,
         "api_calls": cost_row[2] if cost_row else None,
         "skill_files_read": files, "tools": [e.get("name") for e in tool_uses],
-        "reply": reply[:600], "budget": budget,
+        "prompts": sent, "replies": [r[:600] for r in replies], "reply": reply[:600], "budget": budget,
         "within_budget": bool(budget) and len(tool_uses) <= budget["calls"] and secs <= budget["secs"]
         and tokens["total"] <= budget["tokens"],
-        "session": session, "transcript": str(run_dir / "events.jsonl"), "service_account": user,
-        "date": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "session": session, "transcript": str(run_dir / "events.jsonl"), "mcp_log": str(mcp_log),
+        "service_account": account, "date": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
     }
     return record, run_dir
 
@@ -290,20 +474,48 @@ def main():
     parser.add_argument("--model", default="deepseek/deepseek-v4-flash")
     parser.add_argument("--source", choices=("github", "local"), default="github")
     parser.add_argument("--repo", default="mackendell/agentic-wallet")
-    parser.add_argument("--reply", action="append", help="fixed scripted reply for the next turn (repeatable)")
+    parser.add_argument("--reply", action="append", help="extra scripted reply after the case's turns (repeatable)")
+    parser.add_argument("--set", action="append", help="KEY=VALUE for the case's turns, e.g. wallet=my-test")
+    parser.add_argument("--agenttest-url", default=AGENTTEST_URL)
+    parser.add_argument("--own-home", default=str(REAL_HOME / ".cache" / "coinwallet-dev" / "own"),
+                        help="throwaway HOME of the 'own' service account, kept between runs")
+    parser.add_argument("--own-user", default="cwr-own", help="throwaway service account (-u) for the 'own' fixture")
+    parser.add_argument("--wait-file", help="wait for this file instead of Enter at human steps (its text = the value)")
     parser.add_argument("--timeout", type=int, default=600, help="seconds per turn before the run is killed")
     parser.add_argument("--out", help="append JSON lines here (default: stdout only)")
     parser.add_argument("--workdir", help="where run folders go (default: a temp folder); kept for transcripts")
     args = parser.parse_args()
+    global WAIT_FILE
+    WAIT_FILE = args.wait_file
+    if not args.own_user.startswith("cwr-"):
+        raise SystemExit("--own-user must be a throwaway account starting with cwr-")
     base = Path(args.workdir or tempfile.mkdtemp(prefix="hermes-runner-"))
     base.mkdir(parents=True, exist_ok=True)
-    for number in range(1, args.runs + 1):
-        record, _ = one_run(args, number, str(base))
-        line = json.dumps(record, ensure_ascii=False)
-        print(line, flush=True)
-        if args.out:
-            with open(args.out, "a", encoding="utf-8") as stream:
-                stream.write(line + "\n")
+    fixture = CASES[args.case]["fixture"]
+    services = {}
+    if fixture == "fresh":
+        # One throwaway account per invocation (one test keychain item on macOS); these runs never join.
+        services["fresh"] = ThrowawayService(base / "fresh-service", "cwr-fresh-" + time.strftime("%Y%m%d%H%M%S"))
+    elif fixture == "own":
+        services["own"] = ThrowawayService(args.own_home, args.own_user)
+    try:
+        for service in services.values():
+            service.start()
+        for number in range(1, args.runs + 1):
+            try:
+                record, _ = one_run(args, number, str(base), services)
+            except NeedsHuman as need:
+                record = {"case": args.case, "run": number, "ok": None, "needs_human": str(need)}
+            line = json.dumps(record, ensure_ascii=False)
+            print(line, flush=True)
+            if args.out:
+                with open(args.out, "a", encoding="utf-8") as stream:
+                    stream.write(line + "\n")
+            if record.get("needs_human"):
+                break
+    finally:
+        for service in services.values():
+            service.stop()
 
 
 if __name__ == "__main__":

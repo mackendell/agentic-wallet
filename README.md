@@ -48,5 +48,5 @@ The user asked you to install the CoinWallet skill from this repo. Do steps 1 to
    | OpenClaw | `openclaw plugins install coinwallet --marketplace CoinsDo/agentic-wallet --force` |
 
 2. Open your Host's setup card in the installed `coinwallet` skill and run its steps now: `references/cards/setup-hermes.md`, `setup-claude-code.md`, `setup-codex.md` or `setup-openclaw.md`. It installs and starts the wallet service. Never skip it. On Hermes: `skill_view` with name `coinwallet` and path `references/cards/setup-hermes.md`.
-3. Open `references/cards/join.md` in the same skill and follow it: give the App links and help the user make a wallet Room. Give App links only from that card. If the card is missing, say "The wallet service is set up. Joining a wallet comes with the next skill update." and go to step 4.
+3. Open `references/cards/join.md` in the same skill and follow it: give the App links and help the user make a wallet Room. Give App links only from that card.
 4. Claude Code or Codex: end with "Open a new chat and paste your Invitation code there." Hermes or OpenClaw: keep going in this chat.
