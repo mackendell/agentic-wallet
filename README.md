@@ -32,7 +32,7 @@ The user asked you to install the CoinWallet skill from this repo. Do steps 1 to
    | Hermes | `skill_view` with name `coinwallet` and path `references/cards/setup-hermes.md` |
    | OpenClaw | `~/.openclaw/extensions/coinwallet/skills/coinwallet/references/cards/setup-openclaw.md` |
 
-3. Open `references/cards/join.md` in the same skill and follow it: give the App links and help the user make a wallet Room. Give App links only from that card. If that file does not exist, never search for it anywhere else: say "The wallet service is set up. Joining a wallet comes with the next skill update." and go to step 4.
+3. Open `references/cards/join.md` in the same skill and follow it: give the App links and help the user make a wallet Room. Give App links only from that card.
 4. Claude Code or Codex: end with "Open a new chat and paste your Invitation code there." Hermes or OpenClaw: keep going in this chat.
 
 ## After install

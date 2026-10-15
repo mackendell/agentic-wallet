@@ -40,7 +40,8 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from hermes_runner import BUDGETS, CASES, SKILL_PATH, openrouter_key, probe_entry  # noqa: E402
+from hermes_runner import SKILL_PATH, openrouter_key, probe_entry  # noqa: E402
+from test_cases import CASES  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 REAL_HOME = Path.home()
@@ -324,7 +325,7 @@ def one_run(args, number, base):
     env = run_env(args.host, home, bin_dir, user)
     driver = HOSTS[args.host](args, number)
     source = str(ROOT / "README.md") if args.source == "local" else "https://github.com/" + args.repo
-    prompts = [p.format(source=source) for p in CASES[args.case]["prompts"]] + list(args.reply or [])
+    prompts = [p.format(source=source) for p in CASES[args.case]["turns"]] + list(args.reply or [])
     events, secs, timed_out, errors = [], 0.0, False, ""
     for prompt in prompts:
         turn, turn_secs, turn_timeout, stderr = driver.turn(prompt, env, work, args.timeout)
@@ -345,7 +346,7 @@ def one_run(args, number, base):
                 files.append(path)
     passed, checks = check_setup(driver, args.host, home, env, driver.reply) if args.case == "setup" else (None, {})
     calls = driver.calls if args.host == "openclaw" else len(uses)
-    budget = BUDGETS.get(args.case, {})
+    budget = CASES[args.case].get("budget", {})
     record = {
         "case": args.case, "host": args.host, "model": args.model or "codex default", "source": args.source,
         "run": number, "ok": bool(passed) and not timed_out, "checks": checks, "timed_out": timed_out,
@@ -365,7 +366,7 @@ def one_run(args, number, base):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--host", choices=sorted(HOSTS), required=True)
-    parser.add_argument("--case", choices=sorted(CASES), default="setup")
+    parser.add_argument("--case", choices=["setup"], default="setup")
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--model", help="default: openclaw deepseek/deepseek-v4-flash, claude-code sonnet, codex its own")
     parser.add_argument("--source", choices=("github", "local"), default="github")

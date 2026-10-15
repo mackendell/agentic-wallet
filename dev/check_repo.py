@@ -23,7 +23,8 @@ CHAINS = SKILL / "references" / "chains"
 SKILL_MAX, CARD_MAX, CHAIN_MAX = 4096, 3072, 1536
 CARD_NAMES = {"setup", "setup-claude-code", "setup-codex", "setup-hermes", "setup-openclaw", "join", "wallet",
               "address", "send", "approve", "history", "update"}
-CARDS_REQUIRED = {"setup", "setup-hermes", "setup-openclaw", "setup-claude-code", "setup-codex", "update"}  # grows with each ticket; all of CARD_NAMES at release
+CARDS_REQUIRED = {"setup", "setup-hermes", "setup-openclaw", "setup-claude-code", "setup-codex", "update", "join", "wallet",
+                  "address"}  # grows with each ticket; all of CARD_NAMES at release
 CHAIN_NAMES = {"evm", "utxo", "tron", "xrp", "sol", "xlm"}
 REQUIRED = [".claude-plugin/marketplace.json", ".claude-plugin/plugin.json", ".codex-plugin/plugin.json",
             "skills/coinwallet/SKILL.md", "skills/coinwallet/VERSION", "skills/coinwallet/mcp-tested.json",
