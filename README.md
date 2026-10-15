@@ -41,8 +41,7 @@ The agent installs the skill, sets up the CoinsDo wallet service, gives you the 
 
 Then ask, in your own language:
 
-- "What's my USDT address?" / "How much is in my wallet?"
-- "Add another TRX address."
+- "What's my USDT address?" / "How much TRX is in my wallet?"
 - "Send 10 USDT to TX…" (you check one line in chat, say yes, then approve in the App)
 - "Approve my transfer." / "Show my transfer history."
 - "Update CoinWallet."

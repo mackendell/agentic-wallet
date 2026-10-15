@@ -16,7 +16,13 @@ Turns: a string is sent as the user's message ({code}, {wallet} filled from --se
 
 The check sees ctx: mcp (proxy log entries), tools (Host tool names), replies (one per turn), truth (service
 state read directly, read tools only), values. It returns {name: bool}; the run passes when all are true.
+
+Task budgets: a case with passing runs gets its worst passing run (Hermes + DeepSeek Flash) + 25%, rounded up,
+never below the Test plan number (from_runs). Raise it when a new passing run goes over; note the run here.
+Hermes adds ~16-18K tokens per model call and every task reads SKILL.md + one card. A case with no passing run
+yet keeps the Test plan number (BASE) + 1 call, 15 s and 20K tokens per needed clarifying round.
 """
+import math
 import re
 
 APP_IOS = "https://a8ata.app.link/coinwallet_ios"
@@ -24,7 +30,7 @@ APP_ANDROID = "https://a8ata.app.link/coinwallet_android"
 LOOKUPS = {"get_chains", "get_currencies", "get_protocols", "search_chains", "search_currencies", "search_protocols",
            "search_addresses", "get_nft_projects", "search_nft_projects"}
 
-# Task budget, worst of 3 runs on DeepSeek Flash. Messy cases: + 1 call, + 15 s, + 20K per needed clarifying round.
+# Test plan Task budgets (spec #29).
 BASE = {
     "setup": (10, 180, 150_000), "fresh": (3, 30, 60_000), "join": (4, 45, 80_000),
     "wallet": (5, 45, 100_000), "address": (4, 45, 80_000),
@@ -34,6 +40,13 @@ BASE = {
 def budget(base, rounds=0):
     calls, secs, tokens = BASE[base]
     return {"calls": calls + rounds, "secs": secs + 15 * rounds, "tokens": tokens + 20_000 * rounds}
+
+
+def from_runs(calls, secs, ktokens, spec=None):
+    """Worst passing run (calls, seconds, thousand tokens) + 25%, rounded up; never below the spec budget."""
+    spec = spec or {"calls": 0, "secs": 0, "tokens": 0}
+    return {"calls": max(spec["calls"], math.ceil(calls * 1.25)), "secs": max(spec["secs"], math.ceil(secs * 1.25)),
+            "tokens": max(spec["tokens"], math.ceil(ktokens * 1.25) * 1000)}
 
 
 TRAD = set("這個錢們還請碼輸貼應該會時點樣説說嗎號員創網絡測誤沒")
@@ -198,20 +211,19 @@ def check_which_wallet(ctx):
     return out
 
 
-def check_all_balances(ctx):
-    reply = ctx["replies"][-1]
-    nonzero, zero_only = [], []
-    for a in ctx["truth"]["addresses"][1]:
-        balance = ctx["truth"]["balances"][a["addressId"]]
-        (nonzero if float(balance or 0) else zero_only).append((a["currencyName"], balance))
-    shown_names = {n for n, _ in nonzero}
+def check_one_coin_balance(ctx):
+    """M11: no coin named → one question first, no balance call; then only the coin the user picked (XRP)."""
+    first, last = ctx["replies"][0], ctx["replies"][-1]
+    xrp = addr(ctx, 1, "XRP", "XRP")
+    balance_calls = [e for e in ctx["mcp"] if e["tool"] == "get_address_balance"]
     out = common(ctx)
     out.update({
-        "asks_nothing": "?" not in reply and "？" not in reply,
-        "nonzero_shown": all(has_number(reply, b) for _, b in nonzero),
-        "zero_hidden": all(not re.search(r"\b" + re.escape(n) + r"\b", reply) for n, _ in zero_only
-                           if n not in shown_names),
-        "zh_hans": lang_ok(reply, "zh-Hans"),
+        "asks_which_coin": "?" in first or "？" in first,
+        "no_balance_before_answer": not [e for e in ctx["mcp_by_turn"][0] if e["tool"] == "get_address_balance"],
+        "only_that_coin": bool(balance_calls) and all(e["arguments"].get("addressId") == xrp["addressId"]
+                                                      for e in balance_calls),
+        "balance_shown": has_number(last, ctx["truth"]["balances"][xrp["addressId"]]),
+        "zh_hans": lang_ok(first, "zh-Hans") and lang_ok(last, "zh-Hans"),
     })
     return out
 
@@ -230,59 +242,54 @@ def check_xrp_both(ctx):
     return out
 
 
-def add_checks(ctx, wallet_name, last_turn_add):
-    wallet = next((w for w in ctx["truth"]["wallets"] if w["walletName"] == wallet_name), None)
-    trx = addr(ctx, wallet["walletId"], "TRX", "TRX") if wallet else None
-    adds = [e for e in ctx["mcp"] if e["tool"] == "add_address"]
-    reply = ctx["replies"][last_turn_add]
+def to_app(text):
+    return "App" in text or "app" in text
+
+
+def no_add_checks(ctx):
+    """Another address for a held coin: the App redirect, no add_address (MCP v1.0.8 answers {"existed":1})."""
+    names = mcp_names(ctx)
     return {
-        "wallet_known": bool(wallet and trx),
-        "add_once_right_ids": len(adds) == 1 and bool(trx) and adds[0]["arguments"].get("walletId") == wallet["walletId"]
-        and adds[0]["arguments"].get("currencyId") == trx["currencyId"],
-        # Spec outcome: {"pending": 1} and "approve in the App within 15 minutes". MCP v1.0.8 answers
-        # {"existed": 1} for a coin already in the wallet; then the right reply sends the user to the App.
-        "service_said_pending": bool(adds) and '"pending":1' in adds[0].get("reply", "").replace(" ", ""),
-        "right_next_step": bool(adds) and (bool(re.search(r"15\s*(min|分)", reply)) if '"pending":1' in
-                                           adds[0].get("reply", "").replace(" ", "") else "App" in reply),
-        "no_custom_path": "custom_address_path" not in mcp_names(ctx),
+        "no_add_address": "add_address" not in names,
+        "no_custom_path": "custom_address_path" not in names,
+        "only_get_wallets": set(names) <= {"get_wallets"},
+        "sends_to_app": to_app(ctx["replies"][-1]),
     }
 
 
 def check_add(ctx):
     out = common(ctx)
-    out.update(add_checks(ctx, ctx["values"]["wallet"], -1))
+    out.update(no_add_checks(ctx))
     return out
 
 
 def check_add_messy(ctx):
+    """M10: 'add another address' with 2 wallets: the App redirect needs no wallet, so a question is optional."""
     out = common(ctx)
-    first = ctx["replies"][0]
-    out.update({
-        "asks_wallet_and_coin_once": all(n in first for n in wallet_names(ctx)) and not ctx["mcp_by_turn"][0][1:],
-    })
-    out.update(add_checks(ctx, ctx["values"]["wallet"], -1))
+    out.update(no_add_checks(ctx))
+    out["first_reply_to_app_or_asks"] = to_app(ctx["replies"][0]) or "?" in ctx["replies"][0]
     return out
 
 
 def check_add_waiting(ctx):
+    """M13: nothing is pending (no request was made), so 'is my new address ready?' gets the App redirect again."""
     out = common(ctx)
-    out.update(add_checks(ctx, ctx["values"]["wallet"], 0))
-    last = ctx["replies"][-1]
+    out.update(no_add_checks(ctx))
     out.update({
-        "says_waiting_for_app": "App" in last or "app" in last,
-        "no_retry": [e["tool"] for e in ctx["mcp_by_turn"][-1]].count("add_address") == 0,
-        "zh_hant": lang_ok(ctx["replies"][0], "zh-Hant") and lang_ok(last, "zh-Hant"),
+        "first_to_app": to_app(ctx["replies"][0]),
+        "zh_hant": lang_ok(ctx["replies"][0], "zh-Hant") and lang_ok(ctx["replies"][-1], "zh-Hant"),
     })
     return out
 
 
 CASES = {
-    "setup": {"fixture": "install", "turns": ["Install the CoinWallet skill from {source}"], "budget": budget("setup")},
+    "setup": {"fixture": "install", "turns": ["Install the CoinWallet skill from {source}"], "budget": from_runs(8, 101, 144, budget("setup"))},
     "update": {"fixture": "seeded", "turns": ["Update CoinWallet", "yes"], "check": check_update,
+               "budget": from_runs(7, 70, 149),
                "note": "'Update CoinWallet' + 'yes' on a seeded older install: asks first, then skill + MCP updated"},
-    "fresh": {"lang": "en", "card": "join", "fixture": "fresh", "turns": ["What's in my CoinWallet?"], "budget": budget("fresh"),
+    "fresh": {"lang": "en", "card": "join", "fixture": "fresh", "turns": ["What's in my CoinWallet?"], "budget": from_runs(4, 25, 70, budget("fresh")),
               "check": check_fresh, "note": "case 2: 0 wallets → Newbie path"},
-    "join": {"lang": "en", "card": "join", "fixture": "own", "budget": budget("join"), "check": check_join,
+    "join": {"lang": "en", "card": "join", "fixture": "own", "budget": from_runs(5, 63, 125, budget("join")), "check": check_join,
              "note": "case 3: needs a human: a new Room in the App (Testnet) and its code",
              "turns": [{"ask": "In the App make a new MPC wallet Room (Testnet, Wallet Name unique), open "
                                "'Invite Members' and paste the 6-character code here: ", "key": "code"},
@@ -290,12 +297,12 @@ CASES = {
                        {"wait": "In the App: tap 'Create', claim your key shard, wait until both shards are "
                                 "claimed. Press Enter when done."},
                        "Done, I tapped Create and claimed my key shard."]},
-    "addresses": {"lang": "en", "balances": True, "card": "wallet", "fixture": "agenttest", "budget": budget("wallet"), "check": check_address_balance,
+    "addresses": {"lang": "en", "balances": True, "card": "wallet", "fixture": "agenttest", "budget": from_runs(5, 34, 109, budget("wallet")), "check": check_address_balance,
                   "note": "case 4: address + balance",
                   "turns": ["What's my XRP address in agent-test, and how much XRP is on it?"]},
-    "add-address": {"lang": "en", "card": "address", "fixture": "own", "budget": budget("address"), "check": check_add,
-                    "note": "case 5: needs a human: an ONLINE wallet on the own account (--set wallet=NAME); "
-                            "leaves one App approval waiting",
+    "add-address": {"lang": "en", "card": "address", "fixture": "agenttest", "budget": budget("address"),
+                    "check": check_add, "values": {"wallet": "agent-test"},
+                    "note": "case 5: another address for a held coin → the App redirect, no add_address (#29 decision 1)",
                     "turns": ["Add another TRX address to my {wallet} wallet."]},
     "join-dry": {"card": "join", "fixture": "fresh", "budget": budget("join"), "check": check_join_dry,
                  "note": "dev probe, no Room needed: skill + join card loaded and the join call right; the proxy "
@@ -304,21 +311,24 @@ CASES = {
     "join-dry-2w": {"card": "join", "fixture": "agenttest", "budget": budget("join"), "check": check_join_dry,
                     "note": "dev probe like join-dry, with 2 ONLINE wallets already there (read tools only)",
                     "turns": ["My Invitation code is 9F3A0C"]},
-    "M2": {"card": None, "fixture": "agenttest", "budget": budget("wallet", 1), "check": check_which_wallet,
+    "M2": {"card": None, "fixture": "agenttest", "budget": from_runs(4, 21, 69, budget("wallet", 1)), "check": check_which_wallet,
            "note": "ja, 2 wallets: asks which wallet once", "turns": ["ウォレットを確認して"]},
-    "M4": {"card": "join", "fixture": "fresh", "budget": budget("join", 1), "check": check_half_code, "values": {"half": "4B6B"},
+    "M4": {"card": "join", "fixture": "fresh", "budget": from_runs(3, 61, 67, budget("join", 1)), "check": check_half_code, "values": {"half": "4B6B"},
            "note": "zh-Hant, 4 of 6 chars: too short, asks again, never joins", "turns": ["我的邀請碼是 4B6B"]},
-    "M10": {"lang": "en", "card": "address", "fixture": "own", "budget": budget("address", 1), "check": check_add_messy,
-            "note": "needs a human: 2+ ONLINE wallets on the own account (--set wallet=NAME); leaves one App "
-                    "approval waiting",
+    "M10": {"lang": "en", "card": "address", "fixture": "agenttest", "budget": budget("address", 1),
+            "check": check_add_messy, "values": {"wallet": "agent-test"},
+            "note": "2 wallets, no coin: the App redirect (a wallet/coin question is allowed), no add_address",
             "turns": ["add another address", "{wallet}, TRX"]},
-    "M11": {"balances": True, "card": "wallet", "fixture": "agenttest", "hide": [2], "budget": budget("wallet"), "check": check_all_balances,
-            "note": "zh-Hans, 1 wallet (agent-test-2 hidden by the proxy): non-zero balances, asks nothing",
-            "turns": ["我钱包里有多少钱"]},
-    "M12": {"balances": True, "card": "wallet", "fixture": "agenttest", "budget": budget("wallet", 1), "check": check_xrp_both,
+    "M11": {"balances": True, "card": "wallet", "fixture": "agenttest", "hide": [2], "budget": budget("wallet", 1),
+            "check": check_one_coin_balance,
+            "note": "zh-Hans, 1 wallet (agent-test-2 hidden by the proxy), no coin named: asks which coin or "
+                    "Chain once, then shows only XRP (#29 decision 3)",
+            "turns": ["我钱包里有多少钱", "XRP"]},
+    "M12": {"balances": True, "card": "wallet", "fixture": "agenttest", "budget": from_runs(9, 64, 201, budget("wallet", 1)), "check": check_xrp_both,
             "note": "ja, 2 wallets: asks which once; 'both' shows both", "turns": ["xrp残高は？", "両方"]},
-    "M13": {"card": "address", "fixture": "own", "budget": budget("address", 1), "check": check_add_waiting,
-            "note": "zh-Hant: new address asked about while it waits for App approval; no retry. Needs a human: "
-                    "an ONLINE wallet (--set wallet=NAME); do not approve during the run",
+    "M13": {"card": "address", "fixture": "agenttest", "budget": budget("address", 1), "check": check_add_waiting,
+            "values": {"wallet": "agent-test"},
+            "note": "zh-Hant: new TRX address → the App redirect; 'is it ready?' → no request was made, the App "
+                    "again; no add_address",
             "turns": ["幫我在 {wallet} 錢包加一個新的 TRX 地址", "我的新地址好了嗎？"]},
 }

@@ -1,40 +1,22 @@
-# Address card: add the next address
+# Address card: another address, add a token
 
-Add one more address for a coin the wallet already has. The new address gets the next index (…/0/1, then …/0/2).
+## Another address for a coin
 
-## Steps
+The user asks for another, new, next or second address for a coin (TRX, ETH, USDT…), with or without a wallet name.
 
-1. You need the wallet and the coin (and the Chain if the coin is on 2+ Chains). Ask for every missing piece in one message.
-2. Call `get_addresses {walletId, pageIndex: 1, pageSize: 100}`. Find the coin: same `currencyName` or Chain code `abbreviation`. Keep its `currencyId` (not its `addressId`). Count its addresses.
-   - Coin not in the list → say "I can't add <coin> to this wallet yet." Stop.
-3. Call `add_address {walletId, currencyId}` once, with that `currencyId`. There is no index argument.
-4. The reply:
-   - `pending: 1` → tell the user: "Approve the new address in the App within 15 minutes: open the wallet, tap "Activity" (third tab, top of the wallet), then the "Add address" row under "Require Action", then "Approve". Then tell me done."
-   - `success: 1` → go to step 5 now.
-   - `existed: 1` → say: "This wallet service can't make a second <coin> address yet. You can add one in the App." Stop. This is the normal answer today for a coin already in the wallet.
-   - `failed: 1` → tell the user in one line. Stop.
-5. User says done → `get_addresses {walletId, currencyId}`. The new address is the one with the highest last number in `addressPath`. Show it: wallet, coin, Chain, Mainnet or Testnet, full address.
-6. No new address yet:
-   - Less than 15 minutes since step 3 → "It's still waiting for your approval in the App."
-   - 15 minutes or more → "The approval time ran out, so the address was not added. Shall I ask again?" Call `add_address` again only after a yes.
+1. After `get_wallets`, call no other tool. Ask nothing: no wallet question, no coin question, even with 2+ wallets. The reply is the same whether the wallet has the coin or not, so there is nothing to look up.
+2. Reply with exactly this, in the user's language: "I can't add another <coin> address here. You can add it yourself in the CoinWallet App, in that wallet. Then ask me and I'll show the wallet's <coin> addresses." No coin named → say "address" for "<coin> address".
+3. Done. The user later asks to see the address → wallet card.
+
+The user asks "is my new address ready?" → you made no request, so nothing waits in the App. Say: "I didn't make an address request. Add the address in the CoinWallet App; then I can show it." Call no tool.
+
+## A token the wallet doesn't have yet
+
+Say "This CoinWallet version can't add a token yet." Stop. Call no tool.
 
 ## Traps
 
-- Every `add_address` call makes a new approval request in the App. Call it once per user request.
-- The user asks about the new address while it waits → say it is waiting for approval in the App. Never call `add_address` again for that.
-- A timeout is silent. Nothing tells you. Only the missing address shows it.
-- Read the new address id only from `get_addresses {walletId, currencyId}`. `query_address_balance` keeps saying `addressId: 0`, even after approval.
-- Never call `get_currencies` or any `search_` tool here. The `currencyId` comes from `get_addresses`.
-- Never call `custom_address_path` to get past `existed: 1`. Its new address never shows in `get_addresses`.
-
-## App 2.0.31 buttons
-
-Use the user's language column. Chinese: Simplified or Traditional from their characters; unclear → Simplified. Other languages → English. `—` → give the place only. "Activity" is English in every language.
-
-| en | zh-Hans | zh-Hant | ja |
-|---|---|---|---|
-| Activity | Activity | Activity | Activity |
-| Require Action | 需要操作 | 需要操作 | 必要な操作 |
-| Add address | 添加地址 | — | — |
-| Add currency (inside the row) | 添加币种 | — | — |
-| Approve | 批准 | 批准 | 承認 |
+- Name only the App and the wallet. The App's buttons for adding an address are not known here, so give no taps, menus or button names.
+- Never call `add_address` for a coin the wallet already has. The service answers `{"existed":1}` and makes nothing.
+- Never call `custom_address_path`. It turns on a service-wide setting, and its new address never shows in `get_addresses`.
+- Never call `get_addresses`, `get_currencies`, `get_protocols` or any `search_` tool here.

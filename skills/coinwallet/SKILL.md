@@ -1,6 +1,6 @@
 ---
 name: coinwallet
-description: "Load before any coinwallet tool: Invitation code, address, balance, send. CoinWallet: set up the CoinsDo wallet, join a wallet Room, show addresses and balances, add addresses, send and approve transfers, show transfer history."
+description: "Load before any coinwallet tool: Invitation code, address, balance, send. CoinWallet: set up the CoinsDo wallet, join a wallet Room, show addresses and balances, add a token, send and approve transfers, show transfer history."
 ---
 
 # CoinWallet
@@ -16,7 +16,7 @@ Open exactly one card per task, by its path in this skill folder. Follow it. A c
 | install or set up, or the service isn't connected | `references/cards/setup.md` |
 | 0 wallets, join a Room, an Invitation code, a wallet not ready | `references/cards/join.md` |
 | an address, receive, a balance | `references/cards/wallet.md` |
-| a new or next address, add a token | `references/cards/address.md` |
+| another, new or next address, add a token | `references/cards/address.md` |
 | send, pay, transfer, or "done" after a send | `references/cards/send.md` |
 | approve or reject a transfer the user started | `references/cards/approve.md` |
 | transfer history, pending transfers | `references/cards/history.md` |
@@ -32,6 +32,7 @@ Open exactly one card per task, by its path in this skill folder. Follow it. A c
    - 0 wallets → open the join card, whatever the user asked.
    - 1 `ONLINE` wallet → use it and say its name.
    - 2+ `ONLINE` wallets → list the names and ask which one, once, before any address call. Ask the card's other missing pieces in the same message.
+     Another address for a coin (address card) → skip this question.
    - Status `""`, `PENDING_CREATION` or `CREATED` → say it is not ready and what to finish in the App (join card). Never pick it.
 5. No `coinwallet` tools → say "The wallet service isn't connected." and open the setup card.
 

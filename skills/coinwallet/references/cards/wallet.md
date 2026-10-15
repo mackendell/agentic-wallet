@@ -5,12 +5,13 @@ Every fact comes from `get_addresses`. Never call `get_chains`, `get_currencies`
 ## Steps
 
 1. The wallet comes from the router. The user said "both" or "all" → do steps 2–4 for each wallet.
+   - The user named a coin or Chain → go on. Ask nothing.
+   - A balance with no coin or Chain named ("how much is in my wallet") → ask one question: "Which coin or Chain should I check?" Call no other tool before the answer. Then do steps 2–5 for that one only.
 2. Call `get_addresses {walletId, pageIndex: 1, pageSize: 100}` once per wallet.
 3. Find the asset the user named. Match `currencyName` (USDT, ETH) or the Chain code `abbreviation` (ETH, BSC, TRX, POL).
    - Same asset on 2+ Chains and no Chain given → show each Chain.
    - Asset not in the list → say this wallet has no <asset> address yet.
 4. Balance asked → `get_address_balance {addressId}` for each address you show, one call at a time.
-   - "How much is in my wallet" → every address in the list. Reply: "<wallet> (<Testnet or Mainnet> wallet):", then one line per non-zero balance, and stop there. The reply names only coins with a balance. All zero → say the wallet is empty.
 5. Reply.
 
 ## Fields
@@ -32,3 +33,4 @@ Every fact comes from `get_addresses`. Never call `get_chains`, `get_currencies`
 - `get_addresses` with `pageSize` but no `pageIndex` fails ("page index must be greater than 0"). Always send `pageIndex: 1`.
 - `get_addresses` returns no items or the text `"null"` → no addresses yet (wallet not `ONLINE`). Never call it again with the same arguments.
 - Use `get_address_balance {addressId}`. It needs no currency lookup.
+- Never check every address: that is one call per address, 15 or more. Ask which coin or Chain instead.
