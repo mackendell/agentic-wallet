@@ -11,7 +11,7 @@ Only when the user asks you to approve (or reject) a transfer they started in th
    Have `clarify` or `ask_user`? Ask with it, choices exactly `Yes` and `No`. Approve only if `user_response` is exactly `Yes`. Any other reply ("no user available", "best option", time-out): nobody answered. Never pick for the user. End your turn with the full approve check as text, ending "Reply yes to approve." (not "approve it in the App").
 5. `get_wallet {walletId}`: `status` must be `ONLINE`, else stop.
 6. `approval_transaction {bundleId, isApproved: true, comment: "<short note>"}` once.
-7. Say: "Approved. It goes out once it has every approval the wallet needs (2 of 2 by default). Tell me done to see the hash."
+7. Say: "Approved. It goes out once it has every approval the wallet needs. Tell me done to see the hash."
 
 Reject: only when the user asks. Same steps with "Reply yes to reject." and `isApproved: false`.
 

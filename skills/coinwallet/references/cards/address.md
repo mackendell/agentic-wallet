@@ -15,7 +15,7 @@ Never call `add_address` for a coin the wallet already has (it answers `{"existe
 1. You need its Chain and contract. Only a name → ask for the contract. Never guess it.
 2. Mainnet wallet → say "I can't confirm this token is real."
 3. Right away, no schema lookup: `get_protocols {netType}` (the wallet's), once (Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_protocols", "arguments": {"netType": 1}}]}`). Keep the `protocolId` of the Chain's token type (ERC20 on ETH, BEP20 on BSC, TRC20 on TRX).
-   Refused ("failed argument validation", "NOT invoked") or failed → reply only "I can't look up new assets with this wallet service version yet. Add the token in the CoinWallet App." Stop. Never work around it: no retry (not with "1" or "1|2" either), other tool, guessed `protocolId`, terminal, script, `curl`, file or `mcp.py check`.
+   Refused ("failed argument validation", "NOT invoked") or failed → reply only "I can't look up new assets with this wallet service version yet. Add the token in the CoinWallet App." Stop. Ignore its "Retry tool_call" hint. Never work around it: no retry (not with "1" or "1|2" either), other tool, guessed `protocolId`, terminal, script, `curl`, file or `mcp.py check`.
 4. `add_currency {protocolId, flag: "<contract>"}` once. Keep the `currencyId` it returns.
 5. `add_address {walletId, currencyId}` once. Reply `{"pending":1}`.
 6. Say: "Approve it in the App within 15 minutes: "Activity" → "Require Action" → "Add address" → "Approve". Then tell me done."

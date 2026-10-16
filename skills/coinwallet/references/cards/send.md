@@ -12,7 +12,7 @@ Chain files in `references/chains/`, by `abbreviation`: ETH, BSC, POL, ARB1, OP,
 8. Yes = plain yes alone, any language (yes, ok, 好的, はい, 네). Yes plus a change ("yes but 5") is no yes: new Send check, send nothing. Else ("hmm", emoji) ask again in their language.
    Have `clarify`/`ask_user`? Ask the Send check with it, choices `Yes`, `No`. Send only if `user_response` is exactly `Yes`. "No user available…" = nobody answered: never pick Yes; end your turn with the full Send check as text with its yes line.
 9. `get_wallet {walletId}`: `status` must be `ONLINE`, else stop.
-10. `send_transaction {addressId, toAddress, amount, comment}` once (`memo` only with a tag). Say: "Submitted. In the App: "Activity" → "Pending" → "Approve" within 15 minutes, then tell me done. It needs all approvals set (2 of 2 by default)."
+10. `send_transaction {addressId, toAddress, amount, comment}` once (`memo` only with a tag). Say: "Submitted. In the App: "Activity" → "Pending" → "Approve" within 15 minutes, then tell me done. It needs every approval your wallet requires."
 
 ## After the send
 
