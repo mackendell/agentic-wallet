@@ -648,6 +648,16 @@ CASES = {
                 "turns": [{"wait": "In the App, start a 4 XRP transfer from the wallet to " + XRP_OWN_TO + " (PIN). "
                                    "Press Enter when it shows as pending."},
                           "Approve my transfer in {wallet}.", "yes"]},
+    "approve-dry": {"lang": "en", "card": "approve", "fixture": "agenttest", "hide": [2], "budget": budget("approve"),
+                    "check": lambda ctx: common(ctx) | {"says_none_waiting": "no transfer" in ctx["replies"][-1].lower()
+                                                        or "nothing" in ctx["replies"][-1].lower()},
+                    "note": "dev probe, no phone: 'approve my transfer' with nothing pending (read tools only): the "
+                            "skill and approve card are loaded before any wallet call, nothing approved",
+                    "turns": ["Approve my transfer in agent-test."]},
+    "approve-dry-own": {"lang": "en", "card": "approve", "fixture": "own", "policy": "read", "budget": budget("approve"),
+                        "check": lambda ctx: common(ctx) | {"nothing_approved": not calls(ctx, "approval_transaction")},
+                        "note": "dev probe like approve-dry, on the own wallet with case 8's exact words (read tools only)",
+                        "turns": ["Approve my transfer in {wallet}."]},
     "history": {"lang": "en", "card": "history", "fixture": "agenttest", "hide": [2], "budget": from_runs(5, 42, 88, budget("history")),
                 "check": check_history, "note": "case 9: history: statuses as-is, hashes in full, no status filter",
                 "turns": ["Show my CoinWallet transfer history."]},
