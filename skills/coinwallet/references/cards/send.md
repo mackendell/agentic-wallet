@@ -1,0 +1,24 @@
+# Send card
+
+Chain files in `references/chains/`, by `abbreviation`: ETH, BSC, POL, ARB1, OP, BASE → evm.md; BTC, LTC, DOGE → utxo.md; TRX → tron.md; XRP → xrp.md; SOL → sol.md; XLM → xlm.md.
+
+1. `get_addresses {walletId, pageIndex: 1, pageSize: 100}`. Asset: `currencyName` + `abbreviation`.
+2. Chain not listed → "I can't send on <Chain> yet. Send it from the App." Stop. Else read its chain file and apply all its rules (stops: now).
+3. Asset not in the list: a token with a contract → address card, token part. A coin → "Add <coin> in the App first." Stop.
+4. Ask all missing at once: amount, recipient, Chain (asset on 2+ Chains), the chain file's tag/memo question. Never guess amount, recipient. Amount: a plain positive number ("all", "1,000" → ask for one).
+5. Mainnet (`netType` 2) only: a real token's name in the chain file, other `flag` → "This looks fake. Remove it in the App." Stop. Unlisted name → allowed; Send check adds its full contract and "I can't confirm this token is real".
+6. Gas coin: `get_address_balance {addressId}` of its item. 0 → "Your <Chain> address <full address> has 0 <gas coin>. Send some <gas coin> to this address first, then tell me." Stop.
+7. Send check, one message: "<amount> <asset> · <Chain> <Testnet or Mainnet> · from <wallet> · to <full recipient> · <Tag/Memo line> · Remark: <your short note> · Fee: shown in the App when you approve. Reply yes to send."
+8. Yes = a plain yes, nothing added, any language (yes, ok, 好的, はい, 네). Yes plus a change → apply it, new Send check. Else ask again.
+   Have `clarify` or `ask_user`? Ask the Send check with it, choices exactly `Yes` and `No`. Send only if `user_response` is exactly `Yes`. Any other reply ("no user available", "best option", "judgment", time-out): nobody answered. End your turn: the full Send check as text. Never pick for the user.
+9. `get_wallet {walletId}`: `status` must be `ONLINE`, else stop.
+10. `send_transaction {addressId, toAddress, amount, comment}` once (`memo` only with a tag). Say: "Submitted. In the App: "Activity" → "Pending" → "Approve" within 15 minutes, then tell me done. It needs every approval you set (2 of 2 by default)."
+
+## After the send
+
+- Reply `txHash: ""`, `netType: 0`: fine. Keep `bundleId`.
+- Error or no reply → never resend. `get_transactions`, say what is there. Never pass it `status` (Hermes rejects it).
+- "done" → `get_transactions {walletId, pageIndex: 1, pageSize: 20}` once; match `bundleId` (fresh chat: newest by "agent"; 2+ new: ask). `APPROVED` → "Sent: <txHash exactly>" + the chain file's Explorer link. Never "arrived". `PENDING_APPROVAL` → "Not approved yet. You have until <send time + 15 min>." Other word (`TIMEOUT`, `REJECTED`) → show it; nothing was sent; never resend.
+- Changed mind → "Tap "Reject" in the App, or let 15 minutes pass." You reject (`approval_transaction` `isApproved: false`) only if asked, after a yes.
+
+App 2.0.31: Pending = 待审批/待審批/ja 未確認. Approve = 批准/ja 承認. Reject = 拒绝/拒絕/ja 拒否.

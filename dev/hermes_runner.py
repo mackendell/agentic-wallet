@@ -60,7 +60,7 @@ HERMES_PY = HERMES_AGENT / "venv" / "bin" / "python"
 
 sys.path.insert(0, str(ROOT / "dev"))
 from mcp_proxy import HttpMcp  # noqa: E402
-from test_cases import CASES  # noqa: E402
+from test_cases import CASES, HOOKS  # noqa: E402
 
 PROXY = ROOT / "dev" / "mcp_proxy.py"
 AGENTTEST_URL = "http://localhost:18081/mcp"  # the existing -e prod -u agenttest service (HTTP), read tools only
@@ -308,6 +308,27 @@ def update_state(home, hermes_home, env, binary, before_yes):
     }
 
 
+def db_tool_calls(hermes_home):
+    """Every tool call the model made, from Hermes' state.db: [(name, arguments json), ...]. stream-json leaves out
+    calls Hermes refused before running them (e.g. a tool_call that failed argument validation)."""
+    try:
+        db = sqlite3.connect(str(hermes_home / "state.db"))
+        rows = db.execute("select tool_calls from messages where role = 'assistant' and tool_calls is not null "
+                          "order by id").fetchall()
+        db.close()
+    except sqlite3.Error:
+        return []
+    out = []
+    for (raw,) in rows:
+        try:
+            for call in json.loads(raw) or []:
+                function = call.get("function") or {}
+                out.append((function.get("name"), function.get("arguments")))
+        except ValueError:
+            pass
+    return out
+
+
 def session_cost(hermes_home, session):
     try:
         db = sqlite3.connect(str(hermes_home / "state.db"))
@@ -376,14 +397,36 @@ class ThrowawayService:
             self.log.close()
 
 
+def transactions(client, wallet_id):
+    """Newest transfers of one wallet: [transaction dict, ...] (get_transactions, no status filter)."""
+    reply = client.call("get_transactions", {"walletId": wallet_id, "pageIndex": 1, "pageSize": 50})
+    items = (reply.get("items") if isinstance(reply, dict) else reply) or []
+    return [item.get("transaction", item) for item in items]
+
+
+class RunningService:
+    """A throwaway service someone else keeps running (--own-url)."""
+
+    def __init__(self, url, user):
+        self.url, self.user = url, user
+
+    def start(self):
+        HttpMcp(self.url).connect().call("get_wallets")
+
+    def stop(self):
+        pass
+
+
 def read_truth(url, balances_for=()):
-    """Service state, read tools only: wallets, every ONLINE wallet's addresses, balances of the named wallets."""
+    """Service state, read tools only: wallets, every ONLINE wallet's addresses and transfers, balances of the
+    named wallets."""
     client = HttpMcp(url).connect()
     wallets = (client.call("get_wallets") or {}).get("items") or []
-    truth = {"wallets": wallets, "addresses": {}, "balances": {}}
+    truth = {"wallets": wallets, "addresses": {}, "balances": {}, "txs": {}}
     for wallet in wallets:
         if wallet.get("status") != "ONLINE":
             continue
+        truth["txs"][wallet["walletId"]] = transactions(client, wallet["walletId"])
         reply = client.call("get_addresses", {"walletId": wallet["walletId"], "pageIndex": 1, "pageSize": 100})
         items = (reply.get("items") if isinstance(reply, dict) else None) or []
         truth["addresses"][wallet["walletId"]] = items
@@ -426,6 +469,33 @@ def read_log(path):
     return [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def sent_bundles(mcp):
+    """bundleIds the agent's send_transaction calls got back (from the proxy log's short reply)."""
+    return [m.group(1) for e in mcp if e["tool"] == "send_transaction" and not e.get("isError")
+            for m in [re.search(r'"bundleId"\s*:\s*"(\d+)"', e.get("reply", ""))] if m]
+
+
+def wait_settled(url, mcp, text, limit=17 * 60):
+    """A human step in the App (approve or reject the agent's transfer): wait until every bundle this run sent has
+    left PENDING_APPROVAL (or the 15-minute window plus slack is over). Returns [(bundleId, status), ...]."""
+    bundles = sent_bundles(mcp)
+    sys.stderr.write("\n[human] " + text + " bundles=" + ",".join(bundles) + "\n")
+    sys.stderr.flush()
+    deadline, statuses = time.monotonic() + limit, {}
+    while bundles and time.monotonic() < deadline:
+        client = HttpMcp(url).connect()
+        for bundle in bundles:
+            try:
+                statuses[bundle] = (client.call("get_transaction", {"bundleId": bundle}).get("transaction") or {}).get("status")
+            except RuntimeError:
+                pass
+        if all(statuses.get(b) and statuses[b] != "PENDING_APPROVAL" for b in bundles):
+            break
+        time.sleep(5)
+    sys.stderr.write("[human] settled: " + json.dumps(statuses) + "\n")
+    return sorted(statuses.items())
+
+
 class NeedsHuman(Exception):
     pass
 
@@ -466,14 +536,21 @@ def one_run(args, number, base, services):
         binary = seed_update(run_dir, home, hermes_home, env, user, args.source, args.repo)
     elif fixture != "install":
         url = args.agenttest_url if fixture == "agenttest" else services[fixture].url
-        preinstall(args, env, hermes_home, url, "own" if fixture == "own" else "read", case.get("hide", []), mcp_log)
+        policy = case.get("policy") or ("own" if fixture == "own" else "read")
+        preinstall(args, env, hermes_home, url, policy, case.get("hide", []), mcp_log)
     truth = read_truth(url, "all" if case.get("balances") else ()) if url else {}
     if case.get("hide"):
         truth["wallets"] = [w for w in truth["wallets"] if w["walletId"] not in case["hide"]]
     turns = list(case["turns"]) + list(args.reply or [])
-    session, events, secs, timed_out, replies, marks, sent = None, [], 0.0, False, [], [], []
+    session, events, secs, timed_out, replies, marks, sent, settled = None, [], 0.0, False, [], [], [], []
     for turn in turns:
         if isinstance(turn, dict):
+            if "hook" in turn:  # a dev step before a turn, e.g. mint a fresh token (test_cases.HOOKS)
+                values.update(HOOKS[turn["hook"]](values, url))
+                continue
+            if "settle" in turn:
+                settled[:] = wait_settled(url, read_log(mcp_log), turn["settle"])
+                continue
             if "ask" in turn:
                 values[turn["key"]] = values.get(turn["key"]) or human_value(turn["ask"])
             else:
@@ -512,7 +589,9 @@ def one_run(args, number, base, services):
         ctx = {"card": case.get("card"), "lang": case.get("lang"), "mcp": mcp, "mcp_by_turn": [mcp[(marks[i - 1] if i else 0):m] for i, m in enumerate(marks)],
                "replies": replies, "truth": truth, "values": values, "files": files,
                "tool_inputs": [(e.get("name"), e.get("input")) for e in tool_uses],
-               "truth_after": read_truth(url) if fixture == "own" else {},
+               "db_tool_calls": db_tool_calls(hermes_home),
+               "truth_after": read_truth(url) if fixture == "own" else {}, "settled": settled,
+               "sent_bundles": sent_bundles(mcp),
                "state": update_state(home, hermes_home, env, binary, before_yes) if fixture == "seeded" else {}}
         try:
             checks = case["check"](ctx)
@@ -530,7 +609,7 @@ def one_run(args, number, base, services):
     record = {
         "case": args.case, "host": "hermes", "model": args.model, "source": args.source, "run": number,
         "ok": bool(passed) and not timed_out, "checks": checks, "timed_out": timed_out,
-        "calls": len(tool_uses), "mcp_calls": [e["tool"] for e in mcp], "secs": round(secs, 1),
+        "calls": len(tool_uses), "db_calls": len(db_tool_calls(hermes_home)), "mcp_calls": [e["tool"] for e in mcp], "secs": round(secs, 1),
         "tokens": tokens["total"], "tokens_uncached": tokens["total"] - tokens["cache_read"],
         "cost_usd": round(cost_row[0], 5) if cost_row and cost_row[0] is not None else None,
         "api_calls": cost_row[2] if cost_row else None,
@@ -557,6 +636,8 @@ def main():
     parser.add_argument("--own-home", default=str(REAL_HOME / ".cache" / "coinwallet-dev" / "own"),
                         help="throwaway HOME of the 'own' service account, kept between runs")
     parser.add_argument("--own-user", default="cwr-own", help="throwaway service account (-u) for the 'own' fixture")
+    parser.add_argument("--own-url", help="use this already running throwaway service (--own-user's) for 'own' "
+                                          "instead of starting one, so several runners can share it")
     parser.add_argument("--wait-file", help="wait for this file instead of Enter at human steps (its text = the value)")
     parser.add_argument("--timeout", type=int, default=600, help="seconds per turn before the run is killed")
     parser.add_argument("--out", help="append JSON lines here (default: stdout only)")
@@ -573,6 +654,8 @@ def main():
     if fixture == "fresh":
         # One throwaway account per invocation (one test keychain item on macOS); these runs never join.
         services["fresh"] = ThrowawayService(base / "fresh-service", "cwr-fresh-" + time.strftime("%Y%m%d%H%M%S"))
+    elif fixture == "own" and args.own_url:
+        services["own"] = RunningService(args.own_url, args.own_user)
     elif fixture == "own":
         services["own"] = ThrowawayService(args.own_home, args.own_user)
     try:

@@ -6,6 +6,7 @@ Usage (Hermes registers it as the `coinwallet` MCP server for one test run):
 
 --policy read   only read tools reach the service (for runs on real wallets: nothing can change)
 --policy own    read tools + join_mpc_wallet + add_address (for runs on a throwaway service account)
+--policy send   own + add_currency, send_transaction, approval_transaction (throwaway Testnet wallets only)
 --hide-wallet   drop this walletId from get_wallets and refuse calls that name it (a 1-wallet fixture)
 
 Every tools/call is logged as one JSON line: tool, arguments, blocked, isError, short reply.
@@ -22,7 +23,8 @@ READ_TOOLS = {"get_wallets", "get_wallet", "get_addresses", "get_address_balance
               "get_transactions", "get_transaction", "get_chains", "get_currencies", "get_protocols", "search_chains",
               "search_currencies", "search_protocols", "search_addresses", "get_nft_projects", "search_nft_projects"}
 OWN_TOOLS = READ_TOOLS | {"join_mpc_wallet", "add_address"}
-POLICIES = {"read": READ_TOOLS, "own": OWN_TOOLS}
+SEND_TOOLS = OWN_TOOLS | {"add_currency", "send_transaction", "approval_transaction"}
+POLICIES = {"read": READ_TOOLS, "own": OWN_TOOLS, "send": SEND_TOOLS}
 
 
 class HttpMcp:

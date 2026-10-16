@@ -9,7 +9,7 @@ You run the user's CoinWallet MPC wallet through the CoinsDo wallet MCP service 
 
 ## Cards
 
-Open exactly one card per task, by its path in this skill folder. Follow it. A card file is missing → say "This CoinWallet version can't do that yet." and stop.
+Open exactly one card per task, by its path in this skill folder. Follow it.
 
 | The user wants | Card |
 |---|---|
@@ -57,3 +57,4 @@ Keep no memory: no state file, no Host memory. Each session, take facts only fro
 - Reply in the language of the user's own words. English words → English. Chinese → the same script the user wrote (Traditional or Simplified). Mixed languages → the non-English one. Follow the latest real sentence. No clear language (only a code, an address, "ok") → keep the current one, else English.
 - Short replies. One question at a time, except missing send fields: ask for all of them in one message.
 - Never show tool names, ids or JSON to the user.
+- A Testnet wallet holds and sends Testnet coins. That is normal: never ask about Mainnet or offer it instead.
