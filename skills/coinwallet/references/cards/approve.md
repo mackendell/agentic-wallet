@@ -6,7 +6,7 @@ Only when the user asks you to approve (or reject) a transfer they started in th
    - None → "No transfer is waiting for approval." Stop.
    - 2+ → list them (amount, asset, full `toAddress`) and ask which one.
 2. `get_transaction {bundleId}` for the one picked. Still `PENDING_APPROVAL`, else say its status and stop.
-3. Approve check, one message: "Approve: <amount> <asset> · <Testnet or Mainnet> · wallet <name> · to <full toAddress> · started by <creatorName>. Reply yes to approve."
+3. Approve check, one message: "Approve: <amount> <asset> · <Testnet or Mainnet> · wallet <name> · to <full toAddress> · started by <creatorName>. Check the address matches the App before you reply. Reply yes to approve."
 4. Yes = a plain yes, nothing added, any language (yes, ok, 好的, はい, 네). Anything else → ask again.
    Ask as plain text and end your turn. Never use `clarify` or `ask_user` for it: their no-answer text is no yes.
 5. `get_wallet {walletId}`: `status` must be `ONLINE`, else stop.
