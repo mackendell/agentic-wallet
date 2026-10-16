@@ -17,7 +17,7 @@ Chain files (`references/chains/`) by `abbreviation`: ETH, BSC, POL, ARB1, OP, B
 ## After the send
 
 - Reply `txHash: ""`, `netType: 0`: fine; keep `bundleId`.
-- Error or empty reply → never send again on this yes, not even after "done"; `get_transactions` once; say what's there. `ErrCodeTee6080`: another transfer waits; nothing made. User clears it in the App → new Send check, new yes.
+- Error or empty reply → this yes is used up: `get_transactions` once, say what's there. `ErrCodeTee6080`: another transfer waits; nothing made. Later "done", "send it now" → no `send_transaction`: a new Send check, then a new yes.
 - "done" → `get_transactions {walletId, pageIndex: 1, pageSize: 20}` once, no `status`; match `bundleId` (fresh chat: newest by "agent"; 2+: ask). `APPROVED` → "Sent: <txHash exactly>" + Explorer link. Never "arrived". `PENDING_APPROVAL` → "Not approved yet. You have until <send time + 15 min>." Other word (`TIMEOUT`; `REJECTED`: user hit Reject) → "Status: <word>"; nothing sent; never resend.
 - Changed mind → "Tap "Reject" in the App, or let 15 minutes pass." Never approve your own send.
 
