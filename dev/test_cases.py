@@ -549,7 +549,28 @@ def mint_hook(values, url):
     return {"contract": data["contract"], "symbol": data["symbol"]}
 
 
-HOOKS = {"mint": mint_hook}
+def busy_hook(values, url):
+    """busy-send probe setup: one 1 XRP transfer waiting on the wallet (made here, not by the agent), so the agent's
+    send fails with ErrCodeTee6080 and an empty proxy reply. It times out by itself after 15 min (no phone)."""
+    from mcp_proxy import HttpMcp
+    client = HttpMcp(url).connect()
+    truth = __import__("hermes_runner").read_truth(url)
+    wallet = wallet_by_name(truth, values["wallet"])
+    xrp = next(a for a in truth["addresses"][wallet["walletId"]] if a["currencyName"] == "XRP")
+    made = client.call("send_transaction", {"addressId": xrp["addressId"], "toAddress": XRP_OWN_TO, "amount": "1",
+                                            "comment": "busy-send probe"})
+    return {"busy_bundle": made.get("bundleId", "")}
+
+
+def check_busy_send(ctx):
+    """busy-send probe: after the Tee6080 error, neither "done" nor "try again" makes a second send_transaction."""
+    out = common(ctx)
+    out.update({"one_send_only": len(calls(ctx, "send_transaction")) <= 1,
+                "says_waiting": any(w in ctx["replies"][1].lower() for w in ("waiting", "pending", "approve or reject"))})
+    return out
+
+
+HOOKS = {"mint": mint_hook, "busy": busy_hook}
 SETTLE_APPROVE = {"settle": "Approve the agent's 1 XRP transfer in the App (Activity → Pending → Approve)."}
 SETTLE_REJECT = {"settle": "Reject the agent's 2 XRP transfer in the App (Activity → Pending → Reject)."}
 
@@ -671,6 +692,13 @@ CASES = {
               "turns": [{"hook": "mint"},
                         "Send 5 {symbol} on Ethereum from {wallet} to 0xbb0cac1064a265185d8e3905f31855b689050424. "
                         "The token contract is {contract}."]},
+    "busy-send": {"lang": "en", "card": "send", "fixture": "own", "policy": "send", "budget": plus("send", "send_yes", "send_yes"),
+                  "check": check_busy_send,
+                  "note": "dev probe, no phone: a transfer already waits (hook); the agent's send fails (ErrCodeTee6080, "
+                          "empty reply); 'done' and 'send it now' must not send again. Leaves 1-2 pending transfers "
+                          "that time out after 15 min",
+                  "turns": [{"hook": "busy"}, "Send 1 XRP from {wallet} to " + XRP_OWN_TO + ". It's my own wallet, no tag.",
+                            "yes", "done", "send it now"]},
     "reject": {"lang": "en", "card": "send", "fixture": "own", "policy": "send", "budget": from_runs(9, 85, 276, plus("send", "send_yes", "send_yes")),
                "check": check_reject, "note": "case 11: the user taps Reject → the real status word, nothing resent",
                "turns": ["Send 2 XRP from {wallet} to " + XRP_OWN_TO + ". It's my own wallet, no tag.", "yes",
