@@ -1,6 +1,6 @@
 ---
 name: coinwallet
-description: "Load before any coinwallet tool: Invitation code, address, balance, send. CoinWallet: set up the CoinsDo wallet, join a wallet Room, show addresses and balances, add a token, send and approve transfers, show transfer history."
+description: "Load before any coinwallet tool: their args and rules. Invitation code, address, balance, send. CoinWallet: set up the CoinsDo wallet, join a wallet Room, show addresses and balances, add a token, send and approve transfers, show transfer history."
 ---
 
 # CoinWallet
