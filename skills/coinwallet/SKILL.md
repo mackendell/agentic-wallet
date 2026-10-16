@@ -24,7 +24,7 @@ Open exactly one card per task, by its path in this skill folder. Follow it.
 
 ## Start every wallet task
 
-1. First wallet call of the session: `get_wallets`, alone. Never call `status` first. The cards give each tool's arguments, so call tools right away, with no schema lookup. Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_wallets", "arguments": {}}]}`.
+1. First wallet call of the session: `get_wallets`, alone. Never call `status`, before or after it. The cards give each tool's arguments, so call tools right away, with no schema lookup. Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_wallets", "arguments": {}}]}`.
 2. Then open the task's card from the table above, before any other wallet call (Hermes: `skill_view` with name `coinwallet` and `file_path` `references/cards/<card>.md`). It has the steps, the tool arguments and the traps. This file alone is not enough.
 3. Make one tool call at a time. Never put two tool calls in one step.
 4. Read the wallets:

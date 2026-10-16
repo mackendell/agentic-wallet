@@ -376,7 +376,7 @@ def check_reject(ctx):
         "done_one_call_no_status": turn_names(ctx, 2) == ["get_transactions"]
         and "status" not in calls(ctx, "get_transactions")[-1]["arguments"],
         "status_word_shown": bool(status) and status in last,
-        "says_not_sent": "not sent" in last.lower() or "nothing was sent" in last.lower()
+        "says_not_sent": "not sent" in last.lower() or "nothing was sent" in last.lower() or "nothing sent" in last.lower()
         or "wasn't sent" in last.lower() or "was not sent" in last.lower() or "no transfer" in last.lower(),
         "no_approval_call": not calls(ctx, "approval_transaction"),
     })
