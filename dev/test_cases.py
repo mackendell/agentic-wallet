@@ -624,7 +624,7 @@ CASES = {
                  "check": check_tag_question, "note": "case 7: XRP with no tag → the tag question, nothing sent",
                  "turns": ["Send 2 XRP to " + XRP_TO]},
     "trap-xlm": {"lang": "en", "card": "send", "fixture": "agenttest", "hide": [2], "budget": budget("send"),
-                 "check": check_trap([["memo"], ["App"]]),
+                 "check": check_trap([["memo"], ["App"], ["can't", "cannot", "can not", "unable", "not able"]]),
                  "note": "case 7: Stellar with a memo → stop, send from the App (the MCP can't send a Stellar memo)",
                  "turns": ["Send 5 XLM to GB4BIGKH2ZVYKIFDUF4WVH3AK3INEVXFH7CIEUGPMG7UNYEQQYSBMORB with memo 88123456, "
                            "it's my exchange deposit."]},
