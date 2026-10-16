@@ -8,7 +8,7 @@ Only when the user asks you to approve (or reject) a transfer they started in th
 2. `get_transaction {bundleId}` for the one picked. Still `PENDING_APPROVAL`, else say its status and stop.
 3. Approve check, one message: "Approve: <amount> <asset> · <Testnet or Mainnet> · wallet <name> · to <full toAddress> · started by <creatorName>. Reply yes to approve."
 4. Yes = a plain yes, nothing added, any language (yes, ok, 好的, はい, 네). Anything else → ask again.
-   Have `clarify` or `ask_user`? Ask with it, choices exactly `Yes` and `No`. Approve only if `user_response` is exactly `Yes`. Any other reply ("no user available", "best option", "judgment", time-out): nobody answered. End your turn: the approve check as text. Never pick for the user.
+   Have `clarify` or `ask_user`? Ask with it, choices exactly `Yes` and `No`. Approve only if `user_response` is exactly `Yes`. Any other reply ("no user available", "best option", time-out): nobody answered. Never pick for the user. End your turn with the full approve check as text, ending "Reply yes to approve." (not "approve it in the App").
 5. `get_wallet {walletId}`: `status` must be `ONLINE`, else stop.
 6. `approval_transaction {bundleId, isApproved: true, comment: "<short note>"}` once.
 7. Say: "Approved. It goes out once it has every approval the wallet needs (2 of 2 by default). Tell me done to see the hash."
@@ -20,7 +20,7 @@ Reject: only when the user asks. Same steps with "Reply yes to reject." and `isA
 - Never pass `status` to `get_transactions`: Hermes rejects it. Filter the reply yourself.
 - `get_transactions` needs `pageIndex: 1` and `pageSize`. Without them: "page index must be greater than 0" or "page size must be between 1 and 100".
 - An item has no time and no Chain. Name the asset by `currencyName`; `currency` is its type (ERC20, TRC20, XRP).
-- `approval_transaction` errors → never call it again. Call `get_transactions` once and say what is there.
+- `approval_transaction` errors, or its reply says `status: "ERROR"` (seen live) → never call it again. Say "Status: ERROR"; nothing was sent. Call `get_transactions` once if unsure.
 - A transfer expires (`TIMEOUT`) 15 minutes after it was started. Never approve one that is not `PENDING_APPROVAL`.
 
 ## App 2.0.31 buttons
