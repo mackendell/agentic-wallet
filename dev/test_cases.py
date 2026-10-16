@@ -557,9 +557,14 @@ def busy_hook(values, url):
     truth = __import__("hermes_runner").read_truth(url)
     wallet = wallet_by_name(truth, values["wallet"])
     xrp = next(a for a in truth["addresses"][wallet["walletId"]] if a["currencyName"] == "XRP")
-    made = client.call("send_transaction", {"addressId": xrp["addressId"], "toAddress": XRP_OWN_TO, "amount": "1",
-                                            "comment": "busy-send probe"})
-    return {"busy_bundle": made.get("bundleId", "")}
+    try:
+        made = client.call("send_transaction", {"addressId": xrp["addressId"], "toAddress": XRP_OWN_TO, "amount": "1",
+                                                "comment": "busy-send probe"})
+    except Exception as err:  # ErrCodeTee6080: a transfer already waits, which is the state this probe wants
+        if "6080" not in str(err):
+            raise
+        made = {}
+    return {"busy_bundle": (made or {}).get("bundleId", "")}
 
 
 def check_busy_send(ctx):
