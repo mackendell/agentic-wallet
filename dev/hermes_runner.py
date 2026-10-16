@@ -587,7 +587,7 @@ def one_run(args, number, base, services):
         passed, checks = check_setup(hermes_home, home, env, reply)
     else:
         ctx = {"card": case.get("card"), "lang": case.get("lang"), "mcp": mcp, "mcp_by_turn": [mcp[(marks[i - 1] if i else 0):m] for i, m in enumerate(marks)],
-               "replies": replies, "truth": truth, "values": values, "files": files,
+               "replies": replies, "truth": truth, "values": values, "files": files, "prompts": sent,
                "tool_inputs": [(e.get("name"), e.get("input")) for e in tool_uses],
                "db_tool_calls": db_tool_calls(hermes_home),
                "truth_after": read_truth(url) if fixture == "own" else {}, "settled": settled,
