@@ -8,7 +8,7 @@ Only when the user asks you to approve (or reject) a transfer they started in th
 2. `get_transaction {bundleId}` for the one picked. Still `PENDING_APPROVAL`, else say its status and stop.
 3. Approve check, one message: "Approve: <amount> <asset> · <Testnet or Mainnet> · wallet <name> · to <full toAddress> · started by <creatorName>. Reply yes to approve."
 4. Yes = a plain yes, nothing added, any language (yes, ok, 好的, はい, 네). Anything else → ask again.
-   Have `clarify` or `ask_user`? Ask with it, choices exactly `Yes` and `No`. Approve only if `user_response` is exactly `Yes`. Any other reply ("no user available", "best option", time-out): nobody answered. Never pick for the user. End your turn with the full approve check as text, ending "Reply yes to approve." (not "approve it in the App").
+   Ask as plain text and end your turn. Never use `clarify` or `ask_user` for it: their no-answer text is no yes.
 5. `get_wallet {walletId}`: `status` must be `ONLINE`, else stop.
 6. `approval_transaction {bundleId, isApproved: true, comment: "<short note>"}` once.
 7. Say: "Approved. It goes out once it has every approval the wallet needs. Tell me done to see the hash."

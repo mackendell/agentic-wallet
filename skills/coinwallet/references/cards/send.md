@@ -6,11 +6,11 @@ Chain files in `references/chains/`, by `abbreviation`: ETH, BSC, POL, ARB1, OP,
 2. Chain not listed → "I can't send on <Chain> yet. Send it from the App." Stop. Else read its chain file, even if the asset is missing; apply its rules (stops first).
 3. Asset not in the list: a token with a contract → open the address card now (token part), no tool first. A coin → "Add <coin> in the App first." Stop.
 4. Ask all missing at once: amount, recipient, Chain (asset on 2+ Chains), the chain file's tag/memo question (never assume none). Never guess amount, recipient. Amount: a plain positive number ("all", "1,000" → ask).
-5. Mainnet (`netType` 2): a real token's name in the chain file, other `flag` → "This looks fake. Remove it in the App." Stop. Unlisted name → allowed; Send check adds its full contract and "I can't confirm this token is real".
+5. Before the gas check, Mainnet (`netType` 2): any item with a real token's name in the chain file but another `flag` → "This looks fake. Remove it in the App." Stop, even if the real one is there too. Unlisted name → allowed; Send check adds its full contract and "I can't confirm this token is real".
 6. Gas coin: `get_address_balance {addressId}`. 0 → "Your <Chain> address <full address> has 0 <gas coin>. Send some <gas coin> to this address first, then tell me." Stop.
 7. Send check, one message: "<amount> <asset> · <Chain> <Testnet or Mainnet> · from <wallet> · to <full recipient> · <Tag/Memo line> · Remark: <your short note> · Fee: shown in the App when you approve. Reply yes to send."
 8. Yes = plain yes alone, any language (yes, ok, 好的, はい, 네). Yes plus a change ("yes but 5") is no yes: new Send check, send nothing. Else ("hmm", emoji) ask again in their language.
-   Have `clarify`/`ask_user`? Ask the Send check with it, choices `Yes`, `No`. Send only if `user_response` is exactly `Yes`. "No user available…" = nobody answered: never pick Yes; end your turn with the full Send check as text with its yes line.
+   Ask as plain text and end your turn. Never use `clarify` or `ask_user` for it: their no-answer text is no yes.
 9. `get_wallet {walletId}`: `status` must be `ONLINE`, else stop.
 10. `send_transaction {addressId, toAddress, amount, comment}` once (`memo` only with a tag). Say: "Submitted. In the App: "Activity" → "Pending" → "Approve" within 15 minutes, then tell me done. It needs every approval your wallet requires."
 

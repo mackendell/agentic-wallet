@@ -85,6 +85,10 @@ def common(ctx):
         "replied": all(r.strip() for r in ctx["replies"]),
         "reply_language": ctx.get("lang") != "en" or all(lang_ok(r, "en") for r in ctx["replies"]),
         "read_its_card": not ctx["card"] or "references/cards/" + ctx["card"] + ".md" in ctx["files"],
+        # #29 decision (2026-10-16): the Send/approve check is plain text, typed yes only. A clarify the agent
+        # answers itself ("no user available… pick the best option") sent and approved in test runs.
+        "no_clarify": ctx["card"] not in ("send", "approve")
+        or not any(t[0] in ("clarify", "ask_user") for t in ctx["tool_inputs"]),
     }
 
 
