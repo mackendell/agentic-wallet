@@ -389,6 +389,7 @@ def check_send(ctx):
             "get_wallet" in turn_names(ctx, 1) and turn_names(ctx, 1).index("get_wallet")
             < turn_names(ctx, 1).index("send_transaction") if "send_transaction" in turn_names(ctx, 1) else False),
         "says_approve_in_app": "15" in ctx["replies"][1] and "Activity" in ctx["replies"][1],
+        "says_full_address": "full address" in ctx["replies"][1].lower(),
         "approved_in_app": done.get("status") == "APPROVED",
         "done_one_call_no_status": turn_names(ctx, 2) == ["get_transactions"]
         and "status" not in calls(ctx, "get_transactions")[-1]["arguments"],
@@ -502,6 +503,7 @@ def check_approve(ctx):
     out.update({
         "listed_with_get_transactions": bool(gets) and all("status" not in e["arguments"] for e in gets),
         "asks_before_approving": "approval_transaction" not in turn_names(ctx, 0) and (asked(first) or "yes" in first.lower()),
+        "says_full_address": "full address" in first.lower(),  # user decision 2026-10-16: open the transfer, check it
         "approved_once_after_yes": len(approvals) == 1 and "approval_transaction" in turn_names(ctx, 1)
         and approvals[0]["arguments"].get("isApproved") is True,
         "user_started_one": bool(target) and target.get("creatorName") != "agent",
