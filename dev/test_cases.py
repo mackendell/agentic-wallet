@@ -400,7 +400,8 @@ def check_tag_question(ctx):
     reply = ctx["replies"][-1]
     out = common(ctx)
     out.update(no_send_checks(ctx))
-    out.update({"asks_tag": "tag" in reply.lower() and asked(reply)})
+    low = reply.lower()  # a question mark, or a request to paste the tag / say "no tag"
+    out.update({"asks_tag": "tag" in low and (asked(reply) or "paste" in low or '"no tag"' in low)})
     return out
 
 
