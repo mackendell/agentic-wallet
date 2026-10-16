@@ -496,7 +496,8 @@ def check_token(ctx):
     reply = ctx["replies"][-1]
     names = mcp_names(ctx)
     contract = ctx["values"].get("contract", "")
-    tried = [c for c in ctx.get("db_tool_calls", []) if "get_protocols" in str(c[0]) + str(c[1])]
+    tried = [c for c in ctx.get("db_tool_calls", []) if str(c[0]).endswith("get_protocols")
+             or (c[0] == "tool_call" and "coinwallet__get_protocols" in str(c[1]))]
     out = common(ctx)
     out.pop("no_lookups")
     out.update({"read_address_card": "references/cards/address.md" in ctx["files"],
