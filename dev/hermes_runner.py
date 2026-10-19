@@ -404,6 +404,13 @@ def transactions(client, wallet_id):
     return [item.get("transaction", item) for item in items]
 
 
+def newbie_service(base, number, services):
+    """M9 (whole Newbie journey): a new throwaway account (0 wallets) for each run; it joins and sends."""
+    service = ThrowawayService(Path(base) / ("newbie-" + str(number)), "cwr-nb-" + time.strftime("%Y%m%d%H%M%S"))
+    service.start()
+    services["newbie"] = service
+
+
 class RunningService:
     """A throwaway service someone else keeps running (--own-url)."""
 
@@ -535,6 +542,8 @@ def one_run(args, number, base, services):
     if fixture == "seeded":
         binary = seed_update(run_dir, home, hermes_home, env, user, args.source, args.repo)
     elif fixture != "install":
+        if fixture == "newbie":
+            newbie_service(base, number, services)
         url = args.agenttest_url if fixture == "agenttest" else services[fixture].url
         policy = case.get("policy") or ("own" if fixture == "own" else "read")
         preinstall(args, env, hermes_home, url, policy, case.get("hide", []), mcp_log)
@@ -620,6 +629,8 @@ def one_run(args, number, base, services):
         "session": session, "transcript": str(run_dir / "events.jsonl"), "mcp_log": str(mcp_log),
         "service_account": account, "date": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
     }
+    if fixture == "newbie":
+        services["newbie"].stop()
     return record, run_dir
 
 

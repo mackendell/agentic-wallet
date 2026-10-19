@@ -40,8 +40,10 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from hermes_runner import SKILL_PATH, openrouter_key, probe_entry  # noqa: E402
-from test_cases import CASES  # noqa: E402
+import hermes_runner  # noqa: E402
+from hermes_runner import (AGENTTEST_URL, PROXY, SKILL_PATH, NeedsHuman, RunningService, ThrowawayService, newbie_service,  # noqa: E402
+                           human_value, openrouter_key, probe_entry, read_log, read_truth, sent_bundles, wait_settled)
+from test_cases import CASES, HOOKS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 REAL_HOME = Path.home()
@@ -318,6 +320,152 @@ def auth_digest():
     return hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
 
 
+INSTALL = {
+    "claude-code": lambda t: [[REAL["claude"], "plugin", "install", "coinwallet", "--marketplace", t]],
+    "codex": lambda t: [[REAL["codex"], "plugin", "marketplace", "add", t], [REAL["codex"], "plugin", "add", "coinwallet@coinsdo"]],
+    "openclaw": lambda t: [[REAL["openclaw"], "plugins", "install", "coinwallet", "--marketplace", t, "--force",
+                            "--accept-capabilities"]],
+}
+
+
+def preinstall(host, driver, env, work, target, url, policy, hide, mcp_log):
+    """Skill installed with the README command and the `coinwallet` MCP server registered (as dev/mcp_proxy.py), as
+    after a finished setup. Neither step counts toward the run."""
+    out = ""
+    for argv in INSTALL[host](target):
+        run = subprocess.run(argv, env=env, cwd=str(work), capture_output=True, text=True, timeout=300,
+                             stdin=subprocess.DEVNULL)
+        out += run.stdout[-1500:] + run.stderr[-1500:]
+    home = Path(env["HOME"])
+    if not (driver.skill_dir(home) / "SKILL.md").is_file():
+        raise SystemExit("skill install failed:\n" + out)
+    proxy = [str(PROXY), "--url", url, "--policy", policy, "--log", str(mcp_log)]
+    for wallet_id in hide:
+        proxy += ["--hide-wallet", str(wallet_id)]
+    entry = {"command": sys.executable, "args": proxy}
+    if host == "claude-code":
+        argv = [REAL["claude"], "mcp", "add-json", "--scope", "user", "coinwallet",
+                json.dumps(dict({"type": "stdio"}, **entry))]
+    elif host == "codex":
+        argv = [REAL["codex"], "mcp", "add", "coinwallet", "--", sys.executable] + proxy
+    else:
+        argv = [REAL["openclaw"], "mcp", "set", "coinwallet", json.dumps(entry)]
+    run = subprocess.run(argv, env=env, cwd=str(work), capture_output=True, text=True, timeout=120,
+                         stdin=subprocess.DEVNULL)
+    if run.returncode or not driver.registered(home):
+        raise SystemExit("register failed: " + run.stdout[-1500:] + run.stderr[-1500:])
+
+
+SHELL_TOOLS = {"bash", "exec", "shell", "command_execution", "exec_command", "process", "terminal"}
+ROGUE_HINTS = ("curl", "wget", "sqlite", "lsof", "ps ", "mcp_proxy", "127.0.0.1", "localhost", "service -t",
+               "http", "python3 -c", "python -c", "nc ")
+
+
+def normalized(use):
+    """(name, input) in the Hermes names the checks know: a shell call -> terminal, except one that only reads skill
+    files (Codex and OpenClaw read cards with cat/sed); a question tool -> ask_user."""
+    name, data = use.get("name") or "", use.get("input") or {}
+    low = name.lower()
+    if low in SHELL_TOOLS:
+        text = json.dumps(data)
+        skill_dir = "coinwallet" in text and any(d in text for d in ("skills/", "plugins/", "extensions/", ".codex",
+                                                                         ".openclaw", ".claude"))
+        if skill_dir and "mcp.py" not in text and not any(h in text for h in ROGUE_HINTS):
+            return "read_skill", data
+        return "terminal", data
+    if low in ("askuserquestion", "ask_user", "request_user_input", "question"):
+        return "ask_user", data
+    return name, data
+
+
+def case_run(args, number, base, services):
+    """A case after setup: same fixture, turns, human steps and checks as dev/hermes_runner.py."""
+    case = CASES[args.case]
+    fixture = case["fixture"]
+    user = "cwr-" + time.strftime("%Y%m%d%H%M%S") + "-" + str(number)
+    target = str(ROOT) if args.source == "local" else args.repo
+    run_dir, home, bin_dir, work = make_run_dir(base, args.host, target)
+    env = run_env(args.host, home, bin_dir, user)
+    driver = HOSTS[args.host](args, number)
+    values = dict(case.get("values", {}))
+    values.update(dict(item.split("=", 1) for item in (args.set or [])))
+    mcp_log = run_dir / "mcp.jsonl"
+    if fixture == "newbie":
+        newbie_service(base, number, services)
+    url = args.agenttest_url if fixture == "agenttest" else services[fixture].url
+    policy = case.get("policy") or ("own" if fixture == "own" else "read")
+    preinstall(args.host, driver, env, work, target, url, policy, case.get("hide", []), mcp_log)
+    truth = read_truth(url, "all" if case.get("balances") else ())
+    if case.get("hide"):
+        truth["wallets"] = [w for w in truth["wallets"] if w["walletId"] not in case["hide"]]
+    turns = list(case["turns"]) + list(args.reply or [])
+    events, secs, timed_out, replies, marks, sent, settled, errors = [], 0.0, False, [], [], [], [], ""
+    for turn in turns:
+        if isinstance(turn, dict):
+            if "hook" in turn:
+                values.update(HOOKS[turn["hook"]](values, url))
+            elif "settle" in turn:
+                settled[:] = wait_settled(url, read_log(mcp_log), turn["settle"])
+            elif "ask" in turn:
+                values[turn["key"]] = values.get(turn["key"]) or human_value(turn["ask"])
+            else:
+                human_value(turn["wait"])
+            continue
+        prompt = turn.format(**values)
+        sent.append(prompt if "{code}" not in turn else turn)
+        driver.reply = ""
+        events_turn, turn_secs, turn_timeout, stderr = driver.turn(prompt, env, work, args.timeout)
+        events += events_turn
+        secs += turn_secs
+        errors += stderr
+        timed_out = timed_out or turn_timeout
+        replies.append(driver.reply)
+        marks.append(len(read_log(mcp_log)))
+        if turn_timeout:
+            break
+    (run_dir / "events.jsonl").write_text("\n".join(json.dumps(e) for e in events) + "\n", encoding="utf-8")
+    (run_dir / "stderr.txt").write_text(errors[-20000:], encoding="utf-8")
+    uses = driver.tool_uses(home)
+    (run_dir / "tool_uses.jsonl").write_text("\n".join(json.dumps(u) for u in uses) + "\n", encoding="utf-8")
+    files = []
+    for use in uses:
+        for path in skill_files(use):
+            if path not in files:
+                files.append(path)
+    mcp = read_log(mcp_log)
+    ctx = {"card": case.get("card"), "lang": case.get("lang"), "mcp": mcp,
+           "mcp_by_turn": [mcp[(marks[i - 1] if i else 0):m] for i, m in enumerate(marks)],
+           "replies": replies, "truth": truth, "values": values, "files": files, "prompts": sent,
+           "tool_inputs": [normalized(u) for u in uses], "db_tool_calls": [],
+           "truth_after": read_truth(url) if fixture == "own" else {}, "settled": settled,
+           "sent_bundles": sent_bundles(mcp), "state": {}}
+    try:
+        checks = case["check"](ctx)
+    except Exception as exc:  # noqa: BLE001 - a broken fixture or reply shape is a failed run, not a crash
+        checks = {"check_crashed: " + repr(exc)[:200]: False}
+    passed = all(checks.values())
+    calls = driver.calls if args.host == "openclaw" else len(uses)
+    budget = case.get("budget", {})
+    account = "agenttest (read tools only)" if fixture == "agenttest" else services[fixture].user
+    record = {
+        "case": args.case, "host": args.host, "model": args.model or "codex default", "source": args.source,
+        "run": number, "ok": bool(passed) and not timed_out, "checks": checks, "timed_out": timed_out,
+        "calls": calls, "mcp_calls": [e["tool"] for e in mcp], "secs": round(secs, 1), "tokens": driver.tokens,
+        "tokens_uncached": driver.tokens - driver.cached,
+        "cost_usd": round(driver.cost, 5) if driver.cost is not None else None,
+        "skill_files_read": files, "tools": [u.get("name") for u in uses],
+        "prompts": sent, "replies": [r[:600] for r in replies], "reply": (replies[-1] if replies else "")[:600],
+        "budget": budget,
+        "within_budget": bool(budget) and calls <= budget["calls"] and secs <= budget["secs"]
+        and driver.tokens <= budget["tokens"],
+        "session": getattr(driver, "session", None), "transcript": str(run_dir / "events.jsonl"),
+        "mcp_log": str(mcp_log), "service_account": account, "date": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+    }
+    if fixture == "newbie":
+        services["newbie"].stop()
+    return record, run_dir
+
+
 def one_run(args, number, base):
     user = "cwr-" + time.strftime("%Y%m%d%H%M%S") + "-" + str(number)
     target = str(ROOT) if args.source == "local" else args.repo
@@ -366,24 +514,55 @@ def one_run(args, number, base):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--host", choices=sorted(HOSTS), required=True)
-    parser.add_argument("--case", choices=["setup"], default="setup")
+    parser.add_argument("--case", choices=sorted(c for c in CASES if CASES[c]["fixture"] != "seeded"), default="setup")
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--model", help="default: openclaw deepseek/deepseek-v4-flash, claude-code sonnet, codex its own")
     parser.add_argument("--source", choices=("github", "local"), default="github")
     parser.add_argument("--repo", default="mackendell/agentic-wallet")
     parser.add_argument("--reply", action="append", help="fixed scripted reply for the next turn (repeatable)")
+    parser.add_argument("--set", action="append", help="KEY=VALUE for the case's turns, e.g. wallet=my-test")
+    parser.add_argument("--agenttest-url", default=AGENTTEST_URL)
+    parser.add_argument("--own-home", default=str(REAL_HOME / ".cache" / "coinwallet-dev" / "own"))
+    parser.add_argument("--own-user", default="cwr-own")
+    parser.add_argument("--own-url", help="an already running throwaway service (--own-user's) for the 'own' fixture")
+    parser.add_argument("--wait-file", help="wait for this file instead of Enter at human steps (its text = the value)")
     parser.add_argument("--timeout", type=int, default=600, help="seconds per turn before the run is killed")
     parser.add_argument("--out", help="append JSON lines here (default: stdout only)")
     parser.add_argument("--workdir", help="where run folders go (default: a temp folder); kept for transcripts")
     args = parser.parse_args()
     args.model = args.model or DEFAULT_MODEL[args.host]
-    if args.case not in ("setup",):
-        raise SystemExit("this runner has the setup case only")
+    hermes_runner.WAIT_FILE = args.wait_file
+    if not args.own_user.startswith("cwr-"):
+        raise SystemExit("--own-user must be a throwaway account starting with cwr-")
     base = Path(args.workdir or tempfile.mkdtemp(prefix="host-runner-"))
     base.mkdir(parents=True, exist_ok=True)
     before = auth_digest() if args.host == "codex" else None
+    fixture = CASES[args.case]["fixture"]
+    services = {}
+    if fixture == "fresh":
+        services["fresh"] = ThrowawayService(base / "fresh-service", "cwr-fresh-" + time.strftime("%Y%m%d%H%M%S"))
+    elif fixture == "own" and args.own_url:
+        services["own"] = RunningService(args.own_url, args.own_user)
+    elif fixture == "own":
+        services["own"] = ThrowawayService(args.own_home, args.own_user)
+    for service in services.values():
+        service.start()
+    try:
+        run_all(args, base, before, services)
+    finally:
+        for service in services.values():
+            service.stop()
+
+
+def run_all(args, base, before, services):
     for number in range(1, args.runs + 1):
-        record, _ = one_run(args, number, str(base))
+        try:
+            if args.case == "setup":
+                record, _ = one_run(args, number, str(base))
+            else:
+                record, _ = case_run(args, number, str(base), services)
+        except NeedsHuman as need:
+            record = {"case": args.case, "host": args.host, "run": number, "ok": None, "needs_human": str(need)}
         if args.host == "codex":
             record["real_codex_auth_unchanged"] = auth_digest() == before
         line = json.dumps(record, ensure_ascii=False)

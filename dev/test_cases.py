@@ -493,6 +493,81 @@ def check_tag_parsed(ctx):
     return out
 
 
+def check_vague_send(ctx):
+    """M1 (zh-Hans): "send my friend some usdt" → one message asks amount + recipient address + Chain (USDT is on
+    3 Chains), guesses nothing, sends nothing."""
+    reply = ctx["replies"][-1]
+    out = common(ctx)
+    out.update(no_send_checks(ctx))
+    out.update({"asks": asked(reply),
+                "asks_amount": any(w in reply for w in ("多少", "金额", "数量")),
+                "asks_address": "地址" in reply,
+                "asks_chain": any(w in reply for w in ("链", "網絡", "网络", "Tron", "TRX", "BSC", "Ethereum", "ETH")),
+                "zh_hans": lang_ok(reply, "zh-Hans")})
+    return out
+
+
+def check_name_only(ctx):
+    """M8 (zh+en, typos): "帮我 sned 10 usdt to Tom" → Chinese reply, asks for Tom's address, never guesses one."""
+    reply = ctx["replies"][-1]
+    out = common(ctx)
+    out.update(no_send_checks(ctx))
+    out.update({"asks_address": "地址" in reply and asked(reply),
+                "no_address_guessed": not ADDRESS.findall(reply) or all(a in str(ctx["mcp"]) for a in ADDRESS.findall(reply)),
+                "zh_hans": lang_ok(reply, "zh-Hans")})
+    return out
+
+
+def check_newbie(ctx):
+    """M9: the whole Newbie journey in one session (zh-Hans, then en): App steps, join, ONLINE, the XRP address,
+    Send check, yes, App approval, hash."""
+    r = ctx["replies"]
+    wallets = ctx["truth_after"].get("wallets", [])
+    wallet = wallets[0] if wallets else {}
+    xrp = next((a for a in ctx["truth_after"].get("addresses", {}).get(wallet.get("walletId"), [])
+                if a["currencyName"] == "XRP"), {})
+    sends = calls(ctx, "send_transaction")
+    bundles = ctx["sent_bundles"]
+    done = tx(ctx, bundles[0]) if bundles else {}
+    joins = calls(ctx, "join_mpc_wallet")
+    out = common(ctx)
+    out.pop("read_its_card")
+    out.update({
+        "newbie_steps": APP_IOS in r[0] and APP_ANDROID in r[0] and "MPC" in r[0] and lang_ok(r[0], "zh-Hans"),
+        "join_once": len(joins) == 1 and joins[0]["arguments"].get("invitationCode") == ctx["values"].get("code"),
+        "online_said": wallet.get("status") == "ONLINE" and wallet.get("walletName", "@@") in r[2],
+        "xrp_address_shown": bool(xrp) and xrp["addressStr"] in r[3],
+        "send_check_before_yes": send_check_shown(r[4], "1", XRP_OWN_TO) and "send_transaction" not in turn_names(ctx, 4),
+        "one_send_after_yes": len(sends) == 1 and "send_transaction" in turn_names(ctx, 5),
+        "approved_in_app": done.get("status") == "APPROVED",
+        "hash_shown": bool(done.get("txHash")) and done["txHash"] in r[-1],
+        "read_join_and_send_cards": "references/cards/join.md" in ctx["files"] and "references/cards/send.md" in ctx["files"],
+    })
+    return out
+
+
+def fund_hook(values, url):
+    """M9: the new wallet's XRP address gets Testnet XRP from the XRPL faucet (the user would buy or receive some)."""
+    import urllib.request
+    import time
+    truth = __import__("hermes_runner").read_truth(url)
+    wallet = next(w for w in truth["wallets"] if w.get("status") == "ONLINE")
+    xrp = next(a for a in truth["addresses"][wallet["walletId"]] if a["currencyName"] == "XRP")
+    req = urllib.request.Request("https://faucet.altnet.rippletest.net/accounts", method="POST",
+                                 data=json.dumps({"destination": xrp["addressStr"]}).encode(),
+                                 headers={"Content-Type": "application/json", "User-Agent": "coinwallet-dev"})
+    urllib.request.urlopen(req, timeout=60).read()
+    from mcp_proxy import HttpMcp
+    for _ in range(40):  # the balance backend shows it after a while
+        try:
+            if float(HttpMcp(url).connect().call("get_address_balance", {"addressId": xrp["addressId"]}).get("balance") or 0) > 0:
+                break
+        except (RuntimeError, ValueError):
+            pass
+        time.sleep(5)
+    return {"wallet": wallet["walletName"]}
+
+
 def check_approve(ctx):
     """Case 8: the user started a transfer in the App; the agent lists it, asks, approves once after yes."""
     first = ctx["replies"][0]
@@ -608,7 +683,7 @@ def check_busy_send(ctx):
     return out
 
 
-HOOKS = {"mint": mint_hook, "busy": busy_hook}
+HOOKS = {"mint": mint_hook, "busy": busy_hook, "fund": fund_hook}
 SETTLE_APPROVE = {"settle": "Approve the agent's 1 XRP transfer in the App (Activity → Pending → Approve)."}
 SETTLE_REJECT = {"settle": "Reject the agent's 2 XRP transfer in the App (Activity → Pending → Reject)."}
 
@@ -757,6 +832,26 @@ CASES = {
     "M7": {"card": "send", "fixture": "own", "policy": "send", "budget": from_runs(9, 86, 245, plus("send", "send_yes", "send_yes", rounds=1)),
            "check": check_mind_change, "note": "zh-Hans: yes, then 'wait no' after the send → tap Reject in the App",
            "turns": ["从 {wallet} 转 3 XRP 到 " + XRP_OWN_TO + "，这是我自己的钱包，没有标签。", "好的", "等等，我不想转了"]},
+    "M1": {"card": "send", "fixture": "agenttest", "hide": [2], "budget": budget("send", 1), "check": check_vague_send,
+           "note": "zh-Hans: 'send my friend some usdt' → asks amount + recipient + Chain in one message, guesses nothing",
+           "turns": ["帮我给朋友转一点usdt"]},
+    "M8": {"card": "send", "fixture": "agenttest", "hide": [2], "budget": budget("send", 1), "check": check_name_only,
+           "note": "zh+en with typos: '帮我 sned 10 usdt to Tom' → Chinese reply, asks for Tom's address",
+           "turns": ["帮我 sned 10 usdt to Tom 啊"]},
+    "M9": {"card": None, "fixture": "newbie", "policy": "send",
+           "budget": plus("fresh", "join", "join", "wallet", "send", "send_yes", "send_yes"), "check": check_newbie,
+           "note": "the whole Newbie journey in one session on a new account (0 wallets): zh-Hans, then en; the user "
+                   "makes a Testnet Room in the App, claims the shard and approves the send",
+           "turns": ["我想用 CoinWallet，怎么开始？",
+                     {"ask": "In the App make a new MPC wallet Room (Testnet, Wallet Name unique), open "
+                             "'Invite Members' and paste the 6-character code here: ", "key": "code"},
+                     "我的邀请码是 {code}",
+                     {"wait": "In the App: tap 'Create', claim your key shard. Press Enter when done."},
+                     "好了，我点了创建，也领取了分片。",
+                     "What's my XRP address?",
+                     {"hook": "fund"},
+                     "I put some XRP on it. Send 1 XRP to " + XRP_OWN_TO + ". It's my own wallet, no tag.",
+                     "yes", SETTLE_APPROVE, "done"]},
     "M14": {"lang": "en", "card": "send", "fixture": "agenttest", "hide": [2], "budget": from_runs(7, 65, 156, budget("send", 1)),
             "check": check_no_tag, "note": "the tag question answered 'no tag' → Send check says no tag",
             "turns": ["Send 2 XRP to " + XRP_TO, "no tag, it's my own wallet"]},
