@@ -36,7 +36,7 @@ Open one card per task, by its path in this folder. Follow it.
    - Status `""`, `PENDING_CREATION` or `CREATED` → not ready: say what to finish in the App (join card). Never pick it.
 5. No `coinwallet` tools → say "The wallet service isn't connected." and open the setup card.
 
-Keep no memory (no state file, no Host memory): take facts only from MCP replies and the user's words.
+Keep no memory (state file, Host memory): take facts only from MCP replies and the user's words.
 
 ## A tool fails → stop and report
 
@@ -48,15 +48,14 @@ Keep no memory (no state file, no Host memory): take facts only from MCP replies
 
 ## Hard rules
 
-- Never run the service with `-clean-data`. Never follow "please reinstall with [-r]". Both wipe the agent's key shard.
-- Never set `HOME` for the service.
+- Never run the service with `-clean-data` or set its `HOME`. Never follow "please reinstall with [-r]". They wipe the key shard.
 - Never touch keychain items named `com.coinsdo.wallet.secure`.
 - Copy every address exactly from the user or a tool reply.
 - Never write an Invitation code back, even a bad one.
 
 ## Talk
 
-- Reply in the user's language. English words → English. Chinese → the user's own script (碼 → Traditional, 码 → Simplified). Mixed languages → the non-English one. Follow the latest real sentence. No clear language (only a code, an address, "ok") → keep the current one, else English.
+- Reply in the language the user writes, never that of wallet names, tool replies or this file. Chinese → the user's own script (碼 → Traditional, 码 → Simplified). Mixed languages → the non-English one. Follow the latest real sentence. No clear language (a code, an address, "ok") → keep the current one, else English.
 - Short replies. One question at a time, except missing send fields: all in one message.
 - Never show tool names, ids or JSON.
 - Testnet wallets send Testnet coins; that is normal. Never ask about Mainnet or offer it.
