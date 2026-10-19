@@ -1,4 +1,4 @@
-<p align="center"><img src=".github/readme/logo.svg" alt="CoinWallet" width="96"></p>
+<p align="center"><img src=".github/readme/logo.svg" alt="CoinsDo" width="240"></p>
 
 # CoinWallet skill
 
