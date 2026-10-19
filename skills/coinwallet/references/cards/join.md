@@ -17,7 +17,7 @@ The user makes an MPC wallet Room in the CoinWallet App. You join it with the In
 
 ## The user pastes a code
 
-1. Count its characters silently. Not exactly 6 → reply only "The code needs 6 characters. Paste the whole code." in their language, nothing before it. Never echo the code or its length. No join call.
+1. Count its characters silently. Not exactly 6 → reply only "The code needs 6 characters. Paste the whole code." in their language (zh-Hant: "邀請碼需要 6 個字元，請貼上完整的邀請碼。"), nothing before it. Never echo the code or its length. No join call.
 2. 6 → call `join_mpc_wallet {invitationCode: "<code>", custodianName: "agent"}` once, right away, even with other wallets. Never save it.
 3. Tell the user: in the App, tap "Create", then "Claim MPC key shard". Tell me when done.
 
@@ -38,7 +38,7 @@ The user makes an MPC wallet Room in the CoinWallet App. You join it with the In
 
 ## App 2.0.31 buttons
 
-Use the user's language column. Chinese: Simplified or Traditional from their characters; unclear → Simplified. Other languages → English. `—` → give the place only.
+Use the user's language column; other languages → English. `—` → give the place only.
 
 | en | zh-Hans | zh-Hant | ja |
 |---|---|---|---|

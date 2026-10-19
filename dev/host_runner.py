@@ -379,6 +379,8 @@ def normalized(use):
                                                                          ".openclaw", ".claude"))
         if skill_dir and "mcp.py" not in text and not any(h in text for h in ROGUE_HINTS):
             return "read_skill", data
+        if str(data.get("command", "")).strip() in ("true", ":"):  # Claude Code's no-op Bash call
+            return "noop", data
         return "terminal", data
     if low in ("askuserquestion", "ask_user", "request_user_input", "question"):
         return "ask_user", data
