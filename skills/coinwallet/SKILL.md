@@ -24,7 +24,7 @@ Open one card per task, by its path in this skill folder. Follow it.
 
 ## Start every wallet task
 
-1. First wallet call of the session: `get_wallets`, alone. Never call `status`, before or after it. Cards give each tool's arguments: call tools right away, no schema lookup. Pass arguments flat (`{walletId: 1}`), never nested in `arguments`; `invalid wallet id: 0` = nested: call again flat. Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_wallets", "arguments": {}}]}`.
+1. First wallet call of the session: `get_wallets`, alone. Never call `status` at all. Cards give each tool's arguments: call tools right away, no schema lookup. Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_wallets", "arguments": {}}]}`. OpenClaw: `tool_call {"id": "coinwallet__get_wallets", "args": {}}`. Never nest arguments deeper; `invalid wallet id: 0` = nested: call again flat.
 2. Then open the task's card from the table above, before any other wallet call (Hermes: `skill_view` with name `coinwallet` and `file_path` `references/cards/<card>.md`). It has the steps, arguments and traps; this file alone is not enough.
 3. One tool call at a time, never two in one step.
 4. Read the wallets:
@@ -51,7 +51,7 @@ Keep no memory (no state file, no Host memory): take facts only from MCP replies
 - Never run the service with `-clean-data`. Never follow "please reinstall with [-r]". Both wipe the agent's key shard.
 - Never set `HOME` for the service.
 - Never touch keychain items named `com.coinsdo.wallet.secure`.
-- Copy every address exactly from the user or a tool reply; never retype one.
+- Copy every address exactly from the user or a tool reply.
 
 ## Talk
 
