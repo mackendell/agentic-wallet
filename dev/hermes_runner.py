@@ -63,7 +63,7 @@ from mcp_proxy import HttpMcp  # noqa: E402
 from test_cases import CASES, HOOKS  # noqa: E402
 
 PROXY = ROOT / "dev" / "mcp_proxy.py"
-AGENTTEST_URL = "http://localhost:18081/mcp"  # the existing -e prod -u agenttest service (HTTP), read tools only
+AGENTTEST_URL = "http://127.0.0.1:18534/mcp"  # the read-only fixture service (-u cwr-fix34, HTTP), read tools only
 
 
 def openrouter_key():

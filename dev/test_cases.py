@@ -6,7 +6,8 @@ Fixtures (the MCP service the agent sees, always through dev/mcp_proxy.py):
   install    no service yet: the agent sets it up (case setup)
   seeded     an older install: skill VERSION 0.0.1 (tested MCP v1.0.7) and MCP v1.0.7 registered (case update)
   fresh      a throwaway service account with 0 wallets, read tools only
-  agenttest  the existing `-e prod -u agenttest` Testnet wallets (agent-test, agent-test-2) over HTTP,
+  agenttest  the read-only Testnet wallets fix34-a, fix34-b (account cwr-fix34, rebuilt in #34: the old
+             `-u agenttest` data was lost) over HTTP,
              read tools only, so nothing on real data can change
   own        a throwaway service account kept between runs (--own-home/--own-user): the user makes Rooms
              and approves in the App; join_mpc_wallet and add_address allowed
@@ -322,8 +323,8 @@ def check_add_waiting(ctx):
 # ---------- send, approve, history (#33) ----------
 
 HANGUL = re.compile(r"[가-힯]")
-XRP_TO = "rDhg5CmsfJn8CWqDKVkSvJCqLdAg1j2hTK"  # agent-test-2's XRP address (nothing is sent to it: read-only runs)
-XRP_OWN_TO = "rf2aUSkbZjy1VYeDGePC9XZk6K3Ks4BffP"  # agent-test's XRP address: receives the throwaway wallet's sends
+XRP_TO = "rhEbNbL9qC7xYbeMHahvjG328eEp1Au5PS"  # fix34-b's XRP address (nothing is sent to it: read-only runs)
+XRP_OWN_TO = "rf2aUSkbZjy1VYeDGePC9XZk6K3Ks4BffP"  # old agent-test's XRP address (dead fixture, still a valid Testnet account): receives the throwaway wallet's sends
 SEND_TOOLS = {"send_transaction", "approval_transaction", "add_currency", "add_address"}
 
 
@@ -716,9 +717,9 @@ CASES = {
                        "Done, I tapped Create and claimed my key shard."]},
     "addresses": {"lang": "en", "balances": True, "card": "wallet", "fixture": "agenttest", "budget": from_runs(5, 34, 109, budget("wallet")), "check": check_address_balance,
                   "note": "case 4: address + balance",
-                  "turns": ["What's my XRP address in agent-test, and how much XRP is on it?"]},
+                  "turns": ["What's my XRP address in fix34-a, and how much XRP is on it?"]},
     "add-address": {"lang": "en", "card": "address", "fixture": "agenttest", "budget": budget("address"),
-                    "check": check_add, "values": {"wallet": "agent-test"},
+                    "check": check_add, "values": {"wallet": "fix34-a"},
                     "note": "case 5: another address for a held coin → the App redirect, no add_address (#29 decision 1)",
                     "turns": ["Add another TRX address to my {wallet} wallet."]},
     "join-dry": {"card": "join", "fixture": "fresh", "budget": budget("join"), "check": check_join_dry,
@@ -733,18 +734,18 @@ CASES = {
     "M4": {"card": "join", "fixture": "fresh", "budget": from_runs(3, 61, 67, budget("join", 1)), "check": check_half_code, "values": {"half": "4B6B"},
            "note": "zh-Hant, 4 of 6 chars: too short, asks again, never joins", "turns": ["我的邀請碼是 4B6B"]},
     "M10": {"lang": "en", "card": "address", "fixture": "agenttest", "budget": budget("address", 1),
-            "check": check_add_messy, "values": {"wallet": "agent-test"},
+            "check": check_add_messy, "values": {"wallet": "fix34-a"},
             "note": "2 wallets, no coin: the App redirect (a wallet/coin question is allowed), no add_address",
             "turns": ["add another address", "{wallet}, TRX"]},
     "M11": {"balances": True, "card": "wallet", "fixture": "agenttest", "hide": [2], "budget": budget("wallet", 1),
             "check": check_one_coin_balance,
-            "note": "zh-Hans, 1 wallet (agent-test-2 hidden by the proxy), no coin named: asks which coin or "
+            "note": "zh-Hans, 1 wallet (fix34-b hidden by the proxy), no coin named: asks which coin or "
                     "Chain once, then shows only XRP (#29 decision 3)",
             "turns": ["我钱包里有多少钱", "XRP"]},
     "M12": {"balances": True, "card": "wallet", "fixture": "agenttest", "budget": from_runs(9, 64, 201, budget("wallet", 1)), "check": check_xrp_both,
             "note": "ja, 2 wallets: asks which once; 'both' shows both", "turns": ["xrp残高は？", "両方"]},
     "M13": {"card": "address", "fixture": "agenttest", "budget": budget("address", 1), "check": check_add_waiting,
-            "values": {"wallet": "agent-test"},
+            "values": {"wallet": "fix34-a"},
             "note": "zh-Hant: new TRX address → the App redirect; 'is it ready?' → no request was made, the App "
                     "again; no add_address",
             "turns": ["幫我在 {wallet} 錢包加一個新的 TRX 地址", "我的新地址好了嗎？"]},
@@ -756,7 +757,7 @@ CASES = {
              "turns": ["Send 1 XRP from {wallet} to " + XRP_OWN_TO + ". It's my own wallet, no tag.", "yes",
                        SETTLE_APPROVE, "done"]},
     "trap-tron": {"lang": "en", "card": "send", "fixture": "agenttest", "hide": [2], "budget": from_runs(6, 56, 135, budget("send")),
-                  "check": check_trap([["TBadj8B4GsG5U6pcngzKL3Jhj8D5R3orHe"], ["0 TRX"]]),
+                  "check": check_trap([["TCxvpwANhmuJaGeUEBNaqPCGBkL5TMwy7x"], ["0 TRX"]]),
                   "note": "case 7: USDT on Tron (Nile) with 0 TRX → the exact top-up line, nothing sent",
                   "turns": ["Send 5 USDT on Tron to TKLYzqsTJNybgEz6MyUGGraACfHAntNyDG"]},
     "trap-xrp": {"lang": "en", "card": "send", "fixture": "agenttest", "hide": [2], "budget": from_runs(5, 40, 111, budget("send")),
@@ -774,12 +775,12 @@ CASES = {
                  "turns": ["Send 0.0005 SOL from {wallet} to FUVUPx7AgLC9GZaRJ1fxpqmsvqAEHpSoQc8iJm3SSeWW, it's a "
                            "brand-new wallet of mine."]},
     "trap-btc": {"lang": "en", "card": "send", "fixture": "agenttest", "hide": [2], "budget": from_runs(6, 62, 135, budget("send")),
-                 "check": check_trap([["mgvAxQGmhbVy2TF4NQknewNMZSYxGH5uhX"], ["0 BTC"]]),
+                 "check": check_trap([["n3EFTR2GZBnbvCVFyXXYKiPHfeVs9TxccZ"], ["0 BTC"]]),
                  "note": "case 7: UTXO: BTC testnet with 0 BTC → the top-up line, no tag question, nothing sent",
                  "turns": ["Send 0.0001 BTC to n2Wf9AqyxTEct9pmvRRQpuuUBHdK5EE7xL"]},
     "trap-gas": {"lang": "en", "card": "send", "fixture": "agenttest", "hide": [1], "budget": from_runs(7, 103, 156, budget("send")),
-                 "check": check_trap([["0xbbcfe0ac63668a20fbfde0019edc57190d73ab1b"], ["0 ETH"]]),
-                 "note": "case 7: USDT on Sepolia from agent-test-2 (0 ETH) → gas on a token send, nothing sent",
+                 "check": check_trap([["0x432d956b186905d506a10fe826518724dd68ba01"], ["0 ETH"]]),
+                 "note": "case 7: USDT on Sepolia from fix34-b (0 ETH) → gas on a token send, nothing sent",
                  "turns": ["Send 1 USDT on Ethereum to 0xbb0cac1064a265185d8e3905f31855b689050424"]},
     "approve": {"lang": "en", "card": "approve", "fixture": "own", "policy": "send", "budget": from_runs(9, 53, 205, plus("approve", "send_yes")),
                 "check": check_approve, "note": "case 8: a transfer the user started in the App → listed, yes, approved once",
@@ -791,7 +792,7 @@ CASES = {
                                                         or "nothing" in ctx["replies"][-1].lower()},
                     "note": "dev probe, no phone: 'approve my transfer' with nothing pending (read tools only): the "
                             "skill and approve card are loaded before any wallet call, nothing approved",
-                    "turns": ["Approve my transfer in agent-test."]},
+                    "turns": ["Approve my transfer in fix34-a."]},
     "approve-dry-own": {"lang": "en", "card": "approve", "fixture": "own", "policy": "read", "budget": budget("approve"),
                         "check": lambda ctx: common(ctx) | {"nothing_approved": not calls(ctx, "approval_transaction")},
                         "note": "dev probe like approve-dry, on the own wallet with case 8's exact words (read tools only)",
