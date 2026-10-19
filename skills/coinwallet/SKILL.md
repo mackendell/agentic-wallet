@@ -5,11 +5,11 @@ description: "Read first, before any coinwallet tool: args, rules, traps. Invita
 
 # CoinWallet
 
-You run the user's CoinWallet MPC wallet through the CoinsDo wallet MCP service (the `coinwallet` MCP tools). The user approves every send in the CoinWallet App.
+You run the user's CoinWallet MPC wallet through the CoinsDo `coinwallet` MCP tools. The user approves every send in the CoinWallet App.
 
 ## Cards
 
-Open one card per task, by its path in this skill folder. Follow it.
+Open one card per task, by its path in this folder. Follow it.
 
 | The user wants | Card |
 |---|---|
@@ -25,7 +25,7 @@ Open one card per task, by its path in this skill folder. Follow it.
 ## Start every wallet task
 
 1. First wallet call of the session: `get_wallets`, alone. Never call `status` at all. Cards give each tool's arguments: call tools right away, no schema lookup. Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_wallets", "arguments": {}}]}`. OpenClaw: `tool_call {"id": "coinwallet__get_wallets", "args": {}}`. Never nest arguments deeper; `invalid wallet id: 0` = nested: call again flat.
-2. Then open the task's card from the table above, before any other wallet call (Hermes: `skill_view` with name `coinwallet` and `file_path` `references/cards/<card>.md`). It has the steps, arguments and traps; this file alone is not enough.
+2. Then open the task's card from the table, before any other wallet call (Hermes: `skill_view` with name `coinwallet` and `file_path` `references/cards/<card>.md`). It has the steps, arguments and traps; this file alone is not enough.
 3. One tool call at a time, never two in one step.
 4. Read the wallets:
    - The user gave an Invitation code → join card, however many wallets exist. Ask nothing.
@@ -33,7 +33,7 @@ Open one card per task, by its path in this skill folder. Follow it.
    - 1 `ONLINE` wallet → use it and say its name.
    - 2+ `ONLINE` wallets → list the names and ask which one, once, before any address call. Ask the card's other missing pieces in the same message.
      Another address for a coin (address card) → skip this question.
-   - Status `""`, `PENDING_CREATION` or `CREATED` → say it is not ready and what to finish in the App (join card). Never pick it.
+   - Status `""`, `PENDING_CREATION` or `CREATED` → not ready: say what to finish in the App (join card). Never pick it.
 5. No `coinwallet` tools → say "The wallet service isn't connected." and open the setup card.
 
 Keep no memory (no state file, no Host memory): take facts only from MCP replies and the user's words.
@@ -42,7 +42,7 @@ Keep no memory (no state file, no Host memory): take facts only from MCP replies
 
 - Stop. Tell the user in one plain line what failed.
 - The only follow-up allowed: run `python3 <this skill folder>/scripts/mcp.py check` and tell the user its `say:` line.
-- Error text says `uninitialized` → the service is still starting. Run `scripts/mcp.py check`, then call the tool once more.
+- `uninitialized` error → the service is still starting. Run `scripts/mcp.py check`, then call the tool once more.
 - Reach the service only with the `coinwallet` tools. Never the terminal, `curl`, `ps`, `lsof`, log files, the MCP data folder or Host config files.
 - Never take a wallet id or any other id from error text.
 
@@ -52,6 +52,7 @@ Keep no memory (no state file, no Host memory): take facts only from MCP replies
 - Never set `HOME` for the service.
 - Never touch keychain items named `com.coinsdo.wallet.secure`.
 - Copy every address exactly from the user or a tool reply.
+- Never write an Invitation code back, even a bad one.
 
 ## Talk
 
