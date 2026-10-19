@@ -3,13 +3,13 @@
 Chain files (`references/chains/`) by `abbreviation`: ETH, BSC, POL, ARB1, OP, BASE → evm.md; BTC, LTC, DOGE → utxo.md; TRX → tron.md; XRP → xrp.md; SOL → sol.md; XLM → xlm.md.
 
 1. `get_addresses {walletId, pageIndex: 1, pageSize: 100}`.
-2. Chain not listed → "I can't send on <Chain> yet. Send it from the App." Stop. Else read its chain file (also if the asset is missing), apply it, stops first.
+2. Chain not listed → "I can't send on <Chain> yet. Send it from the App." Stop. Else apply its chain file (also if the asset is missing), stops first.
 3. Asset not in the list: a token with a contract → the address card's token part now, no tool first. A coin → "Add <coin> in the App first." Stop.
 4. Ask all missing at once: amount, recipient, Chain (if on 2+), the chain file's tag/memo question (never assume none). Never guess them. Amount: a plain positive number ("all", "1,000" → ask).
 5. Mainnet (`netType` 2), before gas: an item named like a real token in the chain file, other `flag` → "This looks fake. Remove it in the App." Stop, even with the real one there. Unlisted name → allowed; Send check adds full contract + "I can't confirm this token is real".
 6. Gas coin: `get_address_balance {addressId}`. 0 → "Your <Chain> address <full address> has 0 <gas coin>. Send <gas coin> to it first, then tell me." Stop. Error → stop; never send on the user's word.
-7. Send check, one message, all in the user's language: "<amount> <asset> · <Chain> <Testnet or Mainnet> · from <wallet> · to <full recipient> · <Tag/Memo line> · Remark: <short note you write; never ask> · Fee: shown in the App when you approve. Reply yes to send."
-8. Yes = plain yes alone, any language (yes, ok, 好的). Yes + a change ("yes but 5") is no yes: new Send check, send nothing. Else ("hmm", emoji) ask again.
+7. After a step-6 balance: Send check, one message, all in the user's language: "<amount> <asset> · <Chain> <Testnet or Mainnet> · from <wallet> · to <full recipient> · <Tag/Memo line> · Remark: <your short note; never ask> · Fee: shown in the App when you approve. Reply yes to send."
+8. Yes = plain yes alone, any language (yes, ok, 好的). Yes + a change ("yes but 5"): new Send check, send nothing. Else ("hmm", emoji) ask again.
    Plain text; end your turn. Never `clarify`/`ask_user`.
 9. `get_wallet {walletId}`: `status` not `ONLINE` → stop.
 10. `send_transaction {addressId, toAddress, amount, comment}` once; `comment` = the Remark (never ""); `memo` only with a tag. Say: "Submitted. In the App: "Activity" → "Pending" → "Approve" within 15 minutes, then tell me done. In the App, open the transfer and check the full address matches before you approve."
