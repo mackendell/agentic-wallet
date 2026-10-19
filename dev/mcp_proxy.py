@@ -96,6 +96,8 @@ def main():
     parser.add_argument("--policy", choices=sorted(POLICIES), required=True)
     parser.add_argument("--log", required=True)
     parser.add_argument("--hide-wallet", type=int, action="append", default=[])
+    parser.add_argument("--fail-tool", action="append", default=[],
+                        help="answer this tool with the service's balance-backend error (ErrCodeNet1004), as in an outage")
     args = parser.parse_args()
     allowed, hidden = POLICIES[args.policy], set(args.hide_wallet)
     upstream = HttpMcp(args.url)
@@ -123,6 +125,10 @@ def main():
                     text = "wallet not found"
                 log(tool=tool, arguments=arguments, blocked=tool not in allowed, isError=True, reply=text)
                 reply = text_result(msg_id, text, True)
+            elif tool in args.fail_tool:
+                text = "ErrCodeNet1004|获取余额失败"
+                log(tool=tool, arguments=arguments, blocked=False, isError=True, reply=text, injected=True)
+                reply = {"jsonrpc": "2.0", "id": msg_id, "error": {"code": -32603, "message": text}}
             else:
                 try:
                     reply = upstream.post(message)
@@ -132,8 +138,9 @@ def main():
                     reply = hide_wallets(reply, hidden)
                 result = (reply or {}).get("result") or {}
                 short = " ".join(c.get("text", "") for c in result.get("content", []) if isinstance(c, dict))
-                log(tool=tool, arguments=arguments, blocked=False, isError=bool(result.get("isError")),
-                    reply=short[:400])
+                error = (reply or {}).get("error") or {}
+                log(tool=tool, arguments=arguments, blocked=False, isError=bool(result.get("isError") or error),
+                    reply=(short or error.get("message", ""))[:400])
         else:
             try:
                 reply = upstream.post(message)

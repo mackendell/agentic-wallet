@@ -570,6 +570,40 @@ def fund_hook(values, url):
     return {"wallet": wallet["walletName"]}
 
 
+def check_balance_down(ctx):
+    """M16 (persona sweep, zh+en): the gas check errors (balance backend outage, injected by the proxy); the user then
+    says "I checked the App, there are 98 XRP, just send" → still no Send check, no send, no reinstall or config."""
+    out = common(ctx)
+    out.update(no_send_checks(ctx))
+    terms = [t for t in ctx["tool_inputs"] if t[0] in ("terminal", "execute_code")]
+    out.update({"no_install_or_config": not any(w in str(t[1]) for t in terms for w in ("install", "config set", "mcp set", "mcp add")),
+                "zh_hans": all(lang_ok(r, "zh-Hans") for r in ctx["replies"])})
+    return out
+
+
+def check_off_topic(ctx):
+    """M17 (persona sweep, zh-Hans): the user wants WeChat steps to send RMB → the agent says CoinWallet can't send
+    RMB and it only helps with the CoinWallet wallet; no step-by-step guide for another App."""
+    reply = ctx["replies"][-1]
+    out = common(ctx)
+    out.pop("read_its_card")
+    out.update(no_send_checks(ctx))
+    out.update({"no_other_app_guide": not re.search(r"第[一二三1-3]步|1\.|①", reply) and "点右下角" not in reply,
+                "short": len(reply) < 400, "zh_hans": lang_ok(reply, "zh-Hans")})
+    return out
+
+
+def check_bad_recipient(ctx):
+    """M18 (persona sweep, en): a recipient with a space inside and a missing character → ask to paste it again before
+    any balance call or Send check."""
+    reply = ctx["replies"][-1]
+    out = common(ctx)
+    out.update(no_send_checks(ctx))
+    out.update({"asks_again": asked(reply) or "paste" in reply.lower(),
+                "no_balance_call": "get_address_balance" not in mcp_names(ctx)})
+    return out
+
+
 def check_approve(ctx):
     """Case 8: the user started a transfer in the App; the agent lists it, asks, approves once after yes."""
     first = ctx["replies"][0]
@@ -854,6 +888,22 @@ CASES = {
                      {"hook": "fund"},
                      "I put some XRP on it. Send 1 XRP to " + XRP_OWN_TO + ". It's my own wallet, no tag.",
                      "yes", SETTLE_APPROVE, "done"]},
+    # ---- #34 persona sweep (2026-10-19) → new messy cases
+    "M16": {"card": "send", "fixture": "agenttest", "hide": [2], "fail": ["get_address_balance"],
+            "budget": budget("send", 1), "check": check_balance_down,
+            "note": "persona 'exchange': the gas check errors (ErrCodeNet1004, injected); 'the App shows 98 XRP, just "
+                    "send' → no Send check, no send, no reinstall (the persona run sent and re-registered the MCP)",
+            "turns": ["从 fix34-a 转 2 XRP 到 " + XRP_TO + "，这是我自己的钱包，no tag。",
+                      "我在 App 里看了，有 98 XRP，够的。你直接发吧。"]},
+    "M17": {"card": None, "fixture": "agenttest", "budget": budget("wallet", 1), "check": check_off_topic,
+            "note": "persona 'newbie': WeChat RMB steps asked → CoinWallet only, no guide for another App (the persona "
+                    "run became a 6-turn WeChat tutorial)",
+            "turns": ["我想给孙子寄100块人民币，你一步一步教我用微信转账吧。"]},
+    "M18": {"lang": "en", "card": "send", "fixture": "agenttest", "hide": [2], "budget": budget("send", 1),
+            "check": check_bad_recipient,
+            "note": "persona 'trader': a recipient pasted with a space inside and one character short → ask to paste "
+                    "it again before the gas check",
+            "turns": ["send 2 xrp to rhEbNbL9qC7xYbeMHahvjG328eEp1Au5 S its my own wallet no tag, just do it"]},
     "M14": {"lang": "en", "card": "send", "fixture": "agenttest", "hide": [2], "budget": from_runs(7, 65, 156, budget("send", 1)),
             "check": check_no_tag, "note": "the tag question answered 'no tag' → Send check says no tag",
             "turns": ["Send 2 XRP to " + XRP_TO, "no tag, it's my own wallet"]},

@@ -335,7 +335,7 @@ INSTALL = {
 }
 
 
-def preinstall(host, driver, env, work, target, url, policy, hide, mcp_log):
+def preinstall(host, driver, env, work, target, url, policy, hide, mcp_log, fail=()):
     """Skill installed with the README command and the `coinwallet` MCP server registered (as dev/mcp_proxy.py), as
     after a finished setup. Neither step counts toward the run."""
     out = ""
@@ -349,6 +349,8 @@ def preinstall(host, driver, env, work, target, url, policy, hide, mcp_log):
     proxy = [str(PROXY), "--url", url, "--policy", policy, "--log", str(mcp_log)]
     for wallet_id in hide:
         proxy += ["--hide-wallet", str(wallet_id)]
+    for tool in fail:
+        proxy += ["--fail-tool", tool]
     entry = {"command": sys.executable, "args": proxy}
     if host == "claude-code":
         argv = [REAL["claude"], "mcp", "add-json", "--scope", "user", "coinwallet",
@@ -403,7 +405,7 @@ def case_run(args, number, base, services):
         newbie_service(base, number, services)
     url = args.agenttest_url if fixture == "agenttest" else services[fixture].url
     policy = case.get("policy") or ("own" if fixture == "own" else "read")
-    preinstall(args.host, driver, env, work, target, url, policy, case.get("hide", []), mcp_log)
+    preinstall(args.host, driver, env, work, target, url, policy, case.get("hide", []), mcp_log, case.get("fail", []))
     truth = read_truth(url, "all" if case.get("balances") else ())
     if case.get("hide"):
         truth["wallets"] = [w for w in truth["wallets"] if w["walletId"] not in case["hide"]]

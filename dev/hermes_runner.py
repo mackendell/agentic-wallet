@@ -450,7 +450,7 @@ def read_truth(url, balances_for=()):
     return truth
 
 
-def preinstall(args, env, hermes_home, url, policy, hide, mcp_log):
+def preinstall(args, env, hermes_home, url, policy, hide, mcp_log, fail=()):
     """Skill installed and the coinwallet MCP server registered (through the proxy), as after a finished setup."""
     if args.source == "local":
         argv = [str(HERMES_PY), str(ROOT / "dev" / "hermes_local_install.py"), str(ROOT),
@@ -463,6 +463,8 @@ def preinstall(args, env, hermes_home, url, policy, hide, mcp_log):
     proxy_args = [str(PROXY), "--url", url, "--policy", policy, "--log", str(mcp_log)]
     for wallet_id in hide:
         proxy_args += ["--hide-wallet", str(wallet_id)]
+    for tool in fail:
+        proxy_args += ["--fail-tool", tool]
     entry = json.dumps({"command": sys.executable, "args": proxy_args})
     run = subprocess.run([HERMES, "config", "set", "mcp_servers.coinwallet", entry], env=env,
                          capture_output=True, text=True, timeout=60)
@@ -546,7 +548,7 @@ def one_run(args, number, base, services):
             newbie_service(base, number, services)
         url = args.agenttest_url if fixture == "agenttest" else services[fixture].url
         policy = case.get("policy") or ("own" if fixture == "own" else "read")
-        preinstall(args, env, hermes_home, url, policy, case.get("hide", []), mcp_log)
+        preinstall(args, env, hermes_home, url, policy, case.get("hide", []), mcp_log, case.get("fail", []))
     truth = read_truth(url, "all" if case.get("balances") else ()) if url else {}
     if case.get("hide"):
         truth["wallets"] = [w for w in truth["wallets"] if w["walletId"] not in case["hide"]]
