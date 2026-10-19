@@ -243,7 +243,14 @@ class Codex:
         if self.model:
             flags += ["-m", self.model]
         argv = [REAL["codex"], "exec"] + (["resume", self.session] if self.session else []) + flags + [prompt]
-        stdout, stderr, secs, timed_out = run_turn(argv, env, work, timeout)
+        # "Selected model is at capacity": the turn failed before the model ran (no tokens). Wait and send the
+        # same turn again (at most 4 times); the record counts the retries. Only that error is retried.
+        for _ in range(4):
+            stdout, stderr, secs, timed_out = run_turn(argv, env, work, timeout)
+            if "at capacity" not in stdout or '"turn.completed"' in stdout:
+                break
+            self.capacity_retries = getattr(self, "capacity_retries", 0) + 1
+            time.sleep(45)
         events = json_lines(stdout)
         for event in events:
             if event.get("type") == "thread.started":
@@ -460,6 +467,7 @@ def case_run(args, number, base, services):
         and driver.tokens <= budget["tokens"],
         "session": getattr(driver, "session", None), "transcript": str(run_dir / "events.jsonl"),
         "mcp_log": str(mcp_log), "service_account": account, "date": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "provider_retries": getattr(driver, "capacity_retries", 0),
     }
     if fixture == "newbie":
         services["newbie"].stop()
