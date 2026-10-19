@@ -7,7 +7,7 @@ The user makes an MPC wallet Room in the CoinWallet App. You join it with the In
 1. Give the App links. Only these:
    - iPhone: https://a8ata.app.link/coinwallet_ios
    - Android: https://a8ata.app.link/coinwallet_android
-2. Copy all 5 App steps exactly, every quoted button kept, buttons from the table in the user's language:
+2. Copy all 5 App steps exactly, every quoted button kept, in the user's language only (table below):
    1. Tap your avatar (top left) to open the side panel. Tap "Add Wallet" at the bottom.
    2. "Select a method" → "MPC Wallet".
    3. "Customize MPC Wallet": keep the defaults → "Next".
