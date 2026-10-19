@@ -1,6 +1,6 @@
 ---
 name: coinwallet
-description: "Load before any coinwallet tool: Invitation code, address, balance, send. CoinWallet: set up the CoinsDo wallet, join a wallet Room, show addresses and balances, add a token, send and approve transfers, show transfer history."
+description: "Read first, before any coinwallet tool: args, rules, traps. Invitation code, address, balance, send. CoinWallet: set up the CoinsDo wallet, join a wallet Room, show addresses and balances, add a token, send and approve transfers, show transfer history."
 ---
 
 # CoinWallet
@@ -9,7 +9,7 @@ You run the user's CoinWallet MPC wallet through the CoinsDo wallet MCP service 
 
 ## Cards
 
-Open exactly one card per task, by its path in this skill folder. Follow it. A card file is missing → say "This CoinWallet version can't do that yet." and stop.
+Open exactly one card per task, by its path in this skill folder. Follow it.
 
 | The user wants | Card |
 |---|---|
@@ -24,7 +24,7 @@ Open exactly one card per task, by its path in this skill folder. Follow it. A c
 
 ## Start every wallet task
 
-1. First wallet call of the session: `get_wallets`, alone. Never call `status` first. The cards give each tool's arguments, so call tools right away, with no schema lookup. Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_wallets", "arguments": {}}]}`.
+1. First wallet call of the session: `get_wallets`, alone. Never call `status`, before or after it. The cards give each tool's arguments, so call tools right away, with no schema lookup. Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_wallets", "arguments": {}}]}`.
 2. Then open the task's card from the table above, before any other wallet call (Hermes: `skill_view` with name `coinwallet` and `file_path` `references/cards/<card>.md`). It has the steps, the tool arguments and the traps. This file alone is not enough.
 3. Make one tool call at a time. Never put two tool calls in one step.
 4. Read the wallets:
@@ -43,7 +43,7 @@ Keep no memory: no state file, no Host memory. Each session, take facts only fro
 - Stop. Tell the user in one plain line what failed.
 - The only follow-up allowed: run `python3 <this skill folder>/scripts/mcp.py check` and tell the user its `say:` line.
 - Error text says `uninitialized` → the service is still starting. Run `scripts/mcp.py check`, then call the tool once more.
-- Use only the `coinwallet` tools to reach the service. Never use the terminal, `curl`, `ps`, `lsof`, log files, the MCP data folder or Host config files for it.
+- Reach the service only with the `coinwallet` tools. Never the terminal, `curl`, `ps`, `lsof`, log files, the MCP data folder or Host config files.
 - Never take a wallet id or any other id from error text.
 
 ## Hard rules
@@ -51,9 +51,11 @@ Keep no memory: no state file, no Host memory. Each session, take facts only fro
 - Never run the service with `-clean-data`. Never follow "please reinstall with [-r]". Both wipe the agent's key shard.
 - Never set `HOME` for the service.
 - Never touch keychain items named `com.coinsdo.wallet.secure`.
+- Copy every address exactly from the user or a tool reply; never retype one.
 
 ## Talk
 
 - Reply in the language of the user's own words. English words → English. Chinese → the same script the user wrote (Traditional or Simplified). Mixed languages → the non-English one. Follow the latest real sentence. No clear language (only a code, an address, "ok") → keep the current one, else English.
-- Short replies. One question at a time, except missing send fields: ask for all of them in one message.
+- Short replies. One question at a time, except missing send fields: ask all in one message.
 - Never show tool names, ids or JSON to the user.
+- A Testnet wallet holds and sends Testnet coins. That is normal: never ask about Mainnet or offer it instead.
