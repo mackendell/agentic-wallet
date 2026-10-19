@@ -41,7 +41,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import hermes_runner  # noqa: E402
-from hermes_runner import (AGENTTEST_URL, PROXY, SKILL_PATH, NeedsHuman, RunningService, ThrowawayService, newbie_service,  # noqa: E402
+from hermes_runner import (AGENTTEST_URL, PROXY, SKILL_PATH, NeedsHuman, RunningService, ThrowawayService, newbie_service, service_stub,  # noqa: E402
                            human_value, openrouter_key, probe_entry, read_log, read_truth, sent_bundles, wait_settled)
 from test_cases import CASES, HOOKS  # noqa: E402
 
@@ -351,6 +351,7 @@ def preinstall(host, driver, env, work, target, url, policy, hide, mcp_log, fail
         proxy += ["--hide-wallet", str(wallet_id)]
     for tool in fail:
         proxy += ["--fail-tool", tool]
+    service_stub(env["HOME"])
     entry = {"command": sys.executable, "args": proxy}
     if host == "claude-code":
         argv = [REAL["claude"], "mcp", "add-json", "--scope", "user", "coinwallet",

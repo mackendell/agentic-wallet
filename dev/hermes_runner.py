@@ -450,6 +450,18 @@ def read_truth(url, balances_for=()):
     return truth
 
 
+def service_stub(home):
+    """The Host runs the service (here: the proxy) after setup, so `scripts/mcp.py check` must find it: a stub at the
+    service path answers `-v` like v1.0.8 and anything else with "already running", as the real binary does while the
+    Host holds it. Without it, check says "not installed. Open the setup card" and agents reinstall (persona sweep)."""
+    base = Path(home) / "Library" / "Application Support" if IS_MAC else Path(home) / ".config"
+    stub = base / "coinsdo-wallet-mcp" / "coinwallet" / "service"
+    stub.parent.mkdir(parents=True, exist_ok=True)
+    stub.write_text('#!/bin/bash\nif [ "$1" = -v ]; then echo "coinsdo-wallet-mcp" >&2; echo " v1.0.8" >&2; exit 0; fi\n'
+                    'echo "the service is already running" >&2; exit 1\n', encoding="utf-8")
+    os.chmod(str(stub), 0o755)
+
+
 def preinstall(args, env, hermes_home, url, policy, hide, mcp_log, fail=()):
     """Skill installed and the coinwallet MCP server registered (through the proxy), as after a finished setup."""
     if args.source == "local":
@@ -465,6 +477,7 @@ def preinstall(args, env, hermes_home, url, policy, hide, mcp_log, fail=()):
         proxy_args += ["--hide-wallet", str(wallet_id)]
     for tool in fail:
         proxy_args += ["--fail-tool", tool]
+    service_stub(env["HOME"])
     entry = json.dumps({"command": sys.executable, "args": proxy_args})
     run = subprocess.run([HERMES, "config", "set", "mcp_servers.coinwallet", entry], env=env,
                          capture_output=True, text=True, timeout=60)

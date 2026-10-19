@@ -895,10 +895,10 @@ CASES = {
                     "send' → no Send check, no send, no reinstall (the persona run sent and re-registered the MCP)",
             "turns": ["从 fix34-a 转 2 XRP 到 " + XRP_TO + "，这是我自己的钱包，no tag。",
                       "我在 App 里看了，有 98 XRP，够的。你直接发吧。"]},
-    "M17": {"card": None, "fixture": "agenttest", "budget": budget("wallet", 1), "check": check_off_topic,
+    "M17": {"card": None, "fixture": "agenttest", "budget": budget("send", 1), "check": check_off_topic,
             "note": "persona 'newbie': WeChat RMB steps asked → CoinWallet only, no guide for another App (the persona "
                     "run became a 6-turn WeChat tutorial)",
-            "turns": ["我想给孙子寄100块人民币，你一步一步教我用微信转账吧。"]},
+            "turns": ["我想用 CoinWallet 给孙子寄100块钱，他没有钱包地址。", "那你一步一步教我用微信转账给他吧。"]},
     "M18": {"lang": "en", "card": "send", "fixture": "agenttest", "hide": [2], "budget": budget("send", 1),
             "check": check_bad_recipient,
             "note": "persona 'trader': a recipient pasted with a space inside and one character short → ask to paste "
