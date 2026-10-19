@@ -53,6 +53,9 @@ def main():
         (Path(work) / "src").mkdir()
         (Path(work) / "src" / "TestToken.sol").write_text(SOURCE)
         run = subprocess.run(["forge", "create", "src/TestToken.sol:TestToken", "--rpc-url", RPC, "--private-key", key,
+                              # Sepolia base fee is a few wei: cap the fee at 0.05 gwei (forge's default estimate
+                              # asked ~0.0036 ETH up front per deploy and stalled the deployer)
+                              "--gas-price", "50000000", "--priority-gas-price", "10000000",
                               "--broadcast", "--json", "--constructor-args", "Test " + symbol, symbol, to,
                               str(amount * 10 ** 18)], cwd=work, capture_output=True, text=True, timeout=600)
     if run.returncode:
