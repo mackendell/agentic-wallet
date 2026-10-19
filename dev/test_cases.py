@@ -676,7 +676,7 @@ CASES = {
 
     # ---- #33 send, approve, history. "own" cases send from a throwaway Testnet wallet (--set wallet=<name>,
     # --own-url of a running throwaway service); the agenttest ones stop before any send (read tools only).
-    "send": {"lang": "en", "card": "send", "fixture": "own", "policy": "send", "budget": plus("send", "send_yes", "send_yes"),
+    "send": {"lang": "en", "card": "send", "fixture": "own", "policy": "send", "budget": from_runs(10, 58, 272, plus("send", "send_yes", "send_yes")),
              "check": check_send, "note": "case 6: Send check, yes sends once, App approval, done → hash + explorer",
              "turns": ["Send 1 XRP from {wallet} to " + XRP_OWN_TO + ". It's my own wallet, no tag.", "yes",
                        SETTLE_APPROVE, "done"]},
@@ -706,7 +706,7 @@ CASES = {
                  "check": check_trap([["0xbbcfe0ac63668a20fbfde0019edc57190d73ab1b"], ["0 ETH"]]),
                  "note": "case 7: USDT on Sepolia from agent-test-2 (0 ETH) → gas on a token send, nothing sent",
                  "turns": ["Send 1 USDT on Ethereum to 0xbb0cac1064a265185d8e3905f31855b689050424"]},
-    "approve": {"lang": "en", "card": "approve", "fixture": "own", "policy": "send", "budget": plus("approve", "send_yes"),
+    "approve": {"lang": "en", "card": "approve", "fixture": "own", "policy": "send", "budget": from_runs(9, 53, 205, plus("approve", "send_yes")),
                 "check": check_approve, "note": "case 8: a transfer the user started in the App → listed, yes, approved once",
                 "turns": [{"wait": "In the App, start a 4 XRP transfer from the wallet to " + XRP_OWN_TO + " (PIN). "
                                    "Press Enter when it shows as pending."},
