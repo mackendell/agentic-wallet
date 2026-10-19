@@ -7,7 +7,7 @@ The user makes an MPC wallet Room in the CoinWallet App. You join it with the In
 1. Give the App links. Only these:
    - iPhone: https://a8ata.app.link/coinwallet_ios
    - Android: https://a8ata.app.link/coinwallet_android
-2. Give all 5 App steps, word for word, buttons from the table in the user's language:
+2. Copy all 5 App steps exactly, every quoted button kept, buttons from the table in the user's language:
    1. Tap your avatar (top left) to open the side panel. Tap "Add Wallet" at the bottom.
    2. "Select a method" → "MPC Wallet".
    3. "Customize MPC Wallet": keep the defaults → "Next".
@@ -17,10 +17,9 @@ The user makes an MPC wallet Room in the CoinWallet App. You join it with the In
 
 ## The user pastes a code
 
-1. The code: 6 characters, digits and letters A–F (like 9F3A0C).
-2. Not 6 characters → say it is too short (or too long) and needs 6. Ask again. No join call. Never quote the wrong code.
-3. Call `join_mpc_wallet {invitationCode: "<code>", custodianName: "agent"}` once, right away, also when other wallets exist. Never write the code back. Never save it.
-4. Tell the user: in the App, tap "Create", then "Claim MPC key shard". Tell me when done.
+1. Count its characters. Not exactly 6 (0-9, A–F, like 9F3A0C) → say it is too short (or too long) and needs 6. Ask again. Never call join with it. Never quote the wrong code.
+2. 6 → call `join_mpc_wallet {invitationCode: "<code>", custodianName: "agent"}` once, right away, even with other wallets. Never write the code back or save it.
+3. Tell the user: in the App, tap "Create", then "Claim MPC key shard". Tell me when done.
 
 ## The user says done
 
