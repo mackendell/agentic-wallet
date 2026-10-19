@@ -17,7 +17,7 @@ The user makes an MPC wallet Room in the CoinWallet App. You join it with the In
 
 ## The user pastes a code
 
-1. Count its characters. Not exactly 6 (0-9, A–F, like 9F3A0C) → say "The code is too short (or long): it needs 6 characters." without the code. Ask again. Never call join with it.
+1. Count its characters. Not exactly 6 (0-9, A–F) → say only "The code needs 6 characters." Never write the user's code back. Ask again. Never call join with it.
 2. 6 → call `join_mpc_wallet {invitationCode: "<code>", custodianName: "agent"}` once, right away, even with other wallets. Never write the code back or save it.
 3. Tell the user: in the App, tap "Create", then "Claim MPC key shard". Tell me when done.
 
