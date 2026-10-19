@@ -63,8 +63,8 @@ def lang_ok(text, lang):
         return bool(chars & TRAD) and not (chars & SIMP)
     if lang == "zh-Hans":  # any Chinese with no Traditional-only character (a short question may have no
         return bool(re.search(r"[\u4e00-\u9fff]", text)) and not (chars & TRAD)  # Simplified-only one either)
-    if lang == "ja":
-        return bool(KANA.search(text))
+    if lang == "ja":  # kana, or a kanji-only line (残高、合計) with no Simplified-only character
+        return bool(KANA.search(text)) or (bool(re.search(r"[\u4e00-\u9fff]", text)) and not (chars & SIMP))
     if lang == "en":
         return not re.search(r"[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]", text)
     return True
@@ -501,7 +501,7 @@ def check_vague_send(ctx):
     reply = ctx["replies"][-1]
     out = common(ctx)
     out.update(no_send_checks(ctx))
-    out.update({"asks": asked(reply),
+    out.update({"asks": asked(reply) or "请提供" in reply or "请告诉" in reply,
                 "asks_amount": any(w in reply for w in ("多少", "金额", "数量")),
                 "asks_address": "地址" in reply,
                 "asks_chain": any(w in reply for w in ("链", "網絡", "网络", "Tron", "TRX", "BSC", "Ethereum", "ETH")),
