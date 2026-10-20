@@ -14,18 +14,17 @@ Never call `add_address` for a coin the wallet already has (it answers `{"existe
 
 1. You need its Chain and contract. Only a name → ask for the contract. Never guess it.
 2. Mainnet wallet → say "I can't confirm this token is real."
-3. Right away, no schema lookup: `get_protocols {netType}` (the wallet's), once (Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_protocols", "arguments": {"netType": 1}}]}`; on Hermes it is always refused, expected: then the line below). Keep the `protocolId` of the Chain's token type (ERC20 on ETH, BEP20 on BSC, TRC20 on TRX).
-   Its first reply is final. Refused ("is not one of") or failed → reply only, no steps: "I can't look up new assets with this wallet service version yet. Add the token in the CoinWallet App." Stop. No second `get_protocols` ("1", "1|2", any value), other tool, guessed `protocolId`, terminal, script, `curl`, file or `mcp.py check`.
+3. Right away, no schema lookup: `get_protocols {netType}` (the wallet's), once (Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_protocols", "arguments": {"netType": 1}}]}`). Keep the `protocolId` of the Chain's token type (ERC20 on ETH, BEP20 on BSC, TRC20 on TRX).
+   Its first reply is final. Refused or failed → reply only, no steps: "I can't look up new assets with this wallet service version yet. Add the token in the CoinWallet App." Stop. No second `get_protocols` ("1", "1|2", any value), other tool, guessed `protocolId`, terminal, script, `curl`, file or `mcp.py check`.
 4. `add_currency {protocolId, flag: "<contract>"}` once. Keep the `currencyId` it returns.
-5. `add_address {walletId, currencyId}` once. Reply `{"pending":1}`.
+5. `add_address {walletId, currencyId}` once. Reply `"pending": 1`.
 6. Say: "Approve it in the App within 15 minutes: "Activity" → "Require Action" → "Add address" → "Approve". Then tell me done."
-7. Done → `get_addresses {walletId, currencyId, pageIndex: 1, pageSize: 100}`. An item → keep its `addressId`, back to the send card. No item, under 15 minutes → "Still waiting for your approval in the App." Later → "The approval time ran out. Ask again?" Yes → step 5.
+7. Done → `get_gen_address_requests {walletId}` once; read the newest item's `status`: `APPROVED` → `get_addresses {walletId, currencyId, pageIndex: 1, pageSize: 100}`, keep its `addressId`, back to the send card. `PENDING_APPROVAL` → "Still waiting for your approval in the App." `TIMEOUT` or `REJECTED` → "The approval <timed out / was rejected>. Ask again?" Yes → step 5.
 
 Traps:
-- Never `search_protocols` (empty for ERC20) or `search_currencies` with only `flag` (errors). Use the `currencyId` from `add_currency`.
-- `query_address_balance` says `addressId: 0`, also after approval. Take the id only from `get_addresses`.
+- Use the `currencyId` from `add_currency`; no `search_*` tool. Take the `addressId` only from `get_addresses`.
 - `add_address` for a token reuses the Chain's first address, so tokens already there become sendable.
-- The timeout is silent. Asked while waiting → waiting for App approval; no new `add_address`.
+- Asked while waiting → step 7; no new `add_address`.
 
 App 2.0.31 buttons for this approval ("Activity" in all languages):
 

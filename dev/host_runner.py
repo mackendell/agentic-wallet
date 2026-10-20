@@ -77,6 +77,10 @@ def make_run_dir(base, host, target):
         "done\n"
         "exec " + shlex.quote(real) + " \"${args[@]}\"\n", encoding="utf-8")
     os.chmod(str(shim), 0o755)
+    if host == "openclaw" and os.environ.get("OPENCLAW_THINKING_DEFAULT"):  # README tip for DeepSeek v4.1 Flash
+        subprocess.run([REAL["openclaw"], "config", "set", "agents.defaults.thinkingDefault",
+                        os.environ["OPENCLAW_THINKING_DEFAULT"]], env=dict(os.environ, HOME=str(home)),
+                       capture_output=True, text=True, timeout=120)
     return run, home, bin_dir, work
 
 
@@ -132,6 +136,8 @@ class OpenClaw:
     def turn(self, prompt, env, work, timeout):
         argv = [REAL["openclaw"], "agent", "--local", "--json", "--session-id", self.session, "--model", self.model,
                 "--message", prompt, "--timeout", str(timeout)]
+        if os.environ.get("OPENCLAW_THINKING"):  # probe: OpenClaw's own thinking level (off|minimal|low|medium|high)
+            argv += ["--thinking", os.environ["OPENCLAW_THINKING"]]
         stdout, stderr, secs, timed_out = run_turn(argv, env, work, timeout + 30)
         start = stdout.find("{")
         try:
@@ -538,6 +544,7 @@ def case_run(args, number, base, services):
         "budget": budget,
         "within_budget": bool(budget) and calls <= budget["calls"] and secs <= budget["secs"]
         and driver.tokens <= budget["tokens"],
+        "openclaw_thinking": os.environ.get("OPENCLAW_THINKING_DEFAULT") if args.host == "openclaw" else None,
         "session": getattr(driver, "session", None), "transcript": str(run_dir / "events.jsonl"),
         "mcp_log": str(mcp_log), "service_account": account, "date": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "provider_retries": getattr(driver, "capacity_retries", 0),
@@ -586,6 +593,7 @@ def one_run(args, number, base):
         "reply": driver.reply[:600], "budget": budget,
         "within_budget": bool(budget) and calls <= budget["calls"] and secs <= budget["secs"]
         and driver.tokens <= budget["tokens"],
+        "openclaw_thinking": os.environ.get("OPENCLAW_THINKING_DEFAULT") if args.host == "openclaw" else None,
         "session": getattr(driver, "session", None), "transcript": str(run_dir / "events.jsonl"),
         "service_account": user, "date": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
     }
