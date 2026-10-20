@@ -409,7 +409,7 @@ def check_reject(ctx):
     out.update({
         "send_check_first": send_check_shown(first, "2", XRP_OWN_TO) and "send_transaction" not in turn_names(ctx, 0),
         "one_send_only": len(calls(ctx, "send_transaction")) == 1,
-        "rejected_in_app": bool(status) and status not in ("APPROVED", "PENDING_APPROVAL"),
+        "rejected_in_app": status == "REJECTED",  # a TIMEOUT means nobody tapped Reject: case 11 not exercised
         "done_one_call_no_status": turn_names(ctx, 2) == ["get_transactions"]
         and "status" not in calls(ctx, "get_transactions")[-1]["arguments"],
         "status_word_shown": bool(status) and status in last,
