@@ -467,7 +467,9 @@ def service_stub(home):
     base = Path(home) / "Library" / "Application Support" if IS_MAC else Path(home) / ".config"
     stub = base / "coinsdo-wallet-mcp" / "coinwallet" / "service"
     stub.parent.mkdir(parents=True, exist_ok=True)
-    stub.write_text('#!/bin/bash\nif [ "$1" = -v ]; then echo "coinsdo-wallet-mcp" >&2; echo " v1.0.8" >&2; exit 0; fi\n'
+    newest = max(json.loads((ROOT / "skills" / "coinwallet" / "mcp-tested.json").read_text())["tested"],
+                 key=lambda v: tuple(int(x) for x in v.lstrip("v").split(".")))
+    stub.write_text('#!/bin/bash\nif [ "$1" = -v ]; then echo "coinsdo-wallet-mcp" >&2; echo " ' + newest + '" >&2; exit 0; fi\n'
                     'echo "the service is already running" >&2; exit 1\n', encoding="utf-8")
     os.chmod(str(stub), 0o755)
 

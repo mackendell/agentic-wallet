@@ -28,7 +28,7 @@ Open one card per task, by its path in this folder. Follow it.
 2. Then open the task's card from the table, before any other wallet call (Hermes: `skill_view` with name `coinwallet` and `file_path` `references/cards/<card>.md`). It has the steps, arguments and traps; this file alone is not enough.
 3. One tool call at a time, never two in one step.
 4. Read the wallets:
-   - The user gave an Invitation code → join card, however many wallets exist. Ask nothing.
+   - An Invitation code → join card (length check first), however many wallets exist. Ask nothing.
    - 0 wallets → open the join card, whatever the user asked.
    - 1 `ONLINE` wallet → use it and say its name.
    - 2+ `ONLINE` wallets → list the names and ask which one, once, before any address call. Ask the card's other missing pieces in the same message.
