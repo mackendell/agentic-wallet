@@ -29,7 +29,7 @@ Open one card per task, by its path in this folder. Follow it.
 3. One tool call at a time, never two in one step.
 4. Read the wallets:
    - An Invitation code → join card, however many wallets exist. Ask nothing.
-   - 0 wallets → open the join card, whatever the user asked.
+   - 0 wallets → the join card, whatever was asked (not update/setup).
    - 1 `ONLINE` wallet → use it and say its name.
    - 2+ `ONLINE` wallets → list the names and ask which one, once, before any address call. Ask the card's other missing pieces in the same message.
      Another address for a coin (address card) → skip this question.
