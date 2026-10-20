@@ -10,9 +10,9 @@ Chain files (`references/chains/`) by `abbreviation`: ETH, BSC, POL, ARB1, OP, B
 6. Gas coin: `get_address_balance {addressId}`. 0 → "Your <Chain> address <full address> has 0 <gas coin>. Send <gas coin> to it first, then tell me." Stop. Error → stop; never send on the user's word.
 7. After a step-6 balance: Send check, one message, all in the user's language: "<amount> <asset> · <Chain> <Testnet or Mainnet> · from <wallet> · to <full recipient> · <Tag/Memo line> · Remark: <your short note; never ask> · Fee: shown in the App when you approve. Reply yes to send."
 8. Yes = plain yes alone, any language (yes, ok, 好的). Yes + a change ("yes but 5"): new Send check, send nothing. Else ("hmm", emoji) ask again.
-   Plain text; end your turn. Never `clarify`/`ask_user`.
-9. `get_wallet {walletId}`: `status` not `ONLINE` → stop.
-10. `send_transaction {addressId, toAddress, amount, comment}` once; `comment` = the Remark (never ""); `memo` only with a tag. Say: "Submitted. In the App: "Activity" → "Pending" → "Approve" within 15 minutes, then tell me done. In the App, open the transfer and check the full address matches before you approve."
+   Plain text, end your turn; no `clarify`/`ask_user`.
+9. `get_wallet {walletId}`: not `ONLINE` → stop.
+10. `send_transaction {addressId, toAddress, amount: "<string>", comment}` once; `comment` = the Remark (never ""); `memo` only with a tag. Say: "Submitted. In the App: "Activity" → "Pending" → "Approve" within 15 minutes, then tell me done. In the App, open the transfer and check the full address matches before you approve."
 
 ## After the send
 
