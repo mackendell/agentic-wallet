@@ -24,19 +24,19 @@ Open one card per task, by its path in this folder. Follow it.
 
 ## Start every wallet task
 
-1. First call: `get_wallets`, alone. Never `status`. Cards give each tool's arguments: no schema lookup. Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_wallets", "arguments": {}}]}`. OpenClaw: `tool_call {"id": "coinwallet__get_wallets", "args": {}}`. Never nest arguments deeper; `invalid wallet id: 0` = nested: call again flat.
+1. First wallet call: `get_wallets`, alone. Never `status`. Cards give each tool's arguments: no schema lookup. Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_wallets", "arguments": {}}]}`. OpenClaw: `tool_call {"id": "coinwallet__get_wallets", "args": {}}`. Never nest arguments; `invalid wallet id: 0` = nested: call again flat.
 2. Then open the task's card from the table, before any other wallet call (Hermes: `skill_view` with name `coinwallet` and `file_path` `references/cards/<card>.md`). It has the steps, arguments and traps; this file alone is not enough.
 3. One tool call at a time, never two in one step.
 4. Read the wallets:
    - An Invitation code → join card, however many wallets exist. Ask nothing.
-   - 0 wallets → the join card, whatever was asked (not update/setup).
+   - 0 wallets → the join card, whatever was asked, except update/setup.
    - 1 `ONLINE` wallet → use it and say its name.
    - 2+ `ONLINE` wallets → list the names and ask which one, once, before any address call. Ask the card's other missing pieces in the same message.
      Another address for a coin (address card) → skip this question.
    - Status `""`, `PENDING_CREATION` or `CREATED` → not ready: say what to finish in the App (join card). Never pick it.
 5. No `coinwallet` tools → say "The wallet service isn't connected." and open the setup card.
 
-Keep no memory (state file, Host memory): take facts only from MCP replies and the user's words.
+Keep no memory (state file, Host memory): facts only from MCP replies and the user's words.
 
 ## A tool fails → stop and report
 
