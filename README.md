@@ -70,8 +70,10 @@ A new address also needs your approval in the App ("Activity" → "Add address")
 
 ## Good to know
 
-- **Mac, after an update:** a popup asks for your Mac login password for "com.coinsdo.wallet.secure". Type it and click **Always Allow**. Never click **Deny**. If a "Keychain Not Found" dialog offers **Reset To Defaults**, click **Cancel**.
+- **Mac, after an update:** a popup says "security wants to use … "com.coinsdo.wallet.secure"" and asks for your Mac login password. Type it and click **Allow**. Never click **Deny**. If a "Keychain Not Found" dialog offers **Reset To Defaults**, click **Cancel**.
 - **Linux:** never delete or replace the master key file or the wallet data folder. Moving to a new server means making a new wallet Room.
+- **Mac, known issue (wallet service 1.0.9):** other programs running as you can read the agent's key-shard secret in your keychain. Every send still needs your approval in the CoinWallet App. CoinsDo is fixing it.
+- **OpenClaw with DeepSeek Flash 4.1:** run `openclaw config set agents.defaults.thinkingDefault medium` once. Without it, the agent's own thinking can show up in its replies.
 - **Testnet:** the App shows Mainnet only. Ask the agent if you want to try Testnet first.
 
 ## Install by hand
@@ -162,7 +164,7 @@ openclaw plugins uninstall coinwallet --force
 > **Before you uninstall:** never delete the wallet data folder or its master key while the wallet holds funds. They hold the agent's key shard. Without it, the agent can't sign, and a 2-of-2 wallet can't send at all. Uninstalling the skill leaves them in place.
 >
 > - macOS: `~/Library/Application Support/coinsdo-wallet-mcp` (its master key is in your Mac keychain as "com.coinsdo.wallet.secure"; never delete it)
-> - Linux: `~/.config/coinsdo-wallet-mcp` (with its `master.key` file, if it has one)
+> - Linux: `~/.config/coinsdo-wallet-mcp` (its master key is `.key/master.key` inside it)
 >
 > Move the funds out in the App first.
 

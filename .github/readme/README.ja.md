@@ -47,7 +47,9 @@ Install the CoinWallet skill from https://github.com/CoinsDo/agentic-wallet
 
 ## 知っておくこと
 
-- **Mac でアップデートしたあと：** 「com.coinsdo.wallet.secure」のために Mac のログインパスワードを求めるポップアップが出ます。パスワードを入力して **Always Allow**（常に許可）をクリックしてください。**Deny**（拒否）は絶対にクリックしないでください。「Keychain Not Found」ダイアログに **Reset To Defaults** が出たら、**Cancel**（キャンセル）をクリックしてください。
+- **Mac でアップデートしたあと：** 「security wants to use … com.coinsdo.wallet.secure」というポップアップが出て、Mac のログインパスワードを求められます。パスワードを入力して **Allow**（許可）をクリックしてください。**Deny**（拒否）は絶対にクリックしないでください。「Keychain Not Found」ダイアログに **Reset To Defaults** が出たら、**Cancel**（キャンセル）をクリックしてください。
+- **Mac の既知の問題（ウォレットサービス 1.0.9）：** あなたのユーザーで動くほかのプログラムが、キーチェーン内のエージェントの鍵シェアを読み取れます。送金はすべて、引き続き CoinWallet アプリでのあなたの承認が必要です。CoinsDo が修正中です。
+- **OpenClaw と DeepSeek Flash 4.1：** 一度だけ `openclaw config set agents.defaults.thinkingDefault medium` を実行してください。設定しないと、エージェント自身の思考が返信に出ることがあります。
 - **Linux：** マスターキーのファイルとウォレットのデータフォルダは、絶対に削除したり置き換えたりしないでください。新しいサーバーに移るときは、ウォレットの Room を作り直します。
 - **テストネット：** アプリには最初メインネットだけが表示されます。先にテストネットで試したいときは、エージェントに聞いてください。
 
@@ -139,7 +141,7 @@ openclaw plugins uninstall coinwallet --force
 > **アンインストールの前に：** ウォレットに資産があるうちは、ウォレットのデータフォルダとそのマスターキーを絶対に削除しないでください。そこにエージェントのキーシャードが入っています。これがないとエージェントは署名できず、2/2 のウォレットはまったく送金できなくなります。スキルをアンインストールしても、これらは残ります。
 >
 > - macOS：`~/Library/Application Support/coinsdo-wallet-mcp`（マスターキーは Mac のキーチェーンに「com.coinsdo.wallet.secure」として入っています。削除しないでください）
-> - Linux：`~/.config/coinsdo-wallet-mcp`（`master.key` ファイルがあれば、それも残してください）
+> - Linux：`~/.config/coinsdo-wallet-mcp`（マスターキーはその中の `.key/master.key` です）
 >
 > 先にアプリで資産を移しておいてください。
 

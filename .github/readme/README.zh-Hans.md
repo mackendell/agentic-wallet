@@ -45,7 +45,9 @@ Install the CoinWallet skill from https://github.com/CoinsDo/agentic-wallet
 
 ## 注意事项
 
-- **Mac 更新之后：** 会弹出一个窗口，要你输入「com.coinsdo.wallet.secure」的 Mac 登录密码。输入密码后点 **Always Allow**（始终允许），千万别点 **Deny**（拒绝）。如果出现「Keychain Not Found」窗口并提供 **Reset To Defaults**，请点 **Cancel**（取消）。
+- **Mac 更新之后：** 会弹出一个窗口，写着「security wants to use … com.coinsdo.wallet.secure」，要你输入 Mac 登录密码。输入密码后点 **Allow**（允许），千万别点 **Deny**（拒绝）。如果出现「Keychain Not Found」窗口并提供 **Reset To Defaults**，请点 **Cancel**（取消）。
+- **Mac 已知问题（钱包服务 1.0.9）：** 以你的身份运行的其他程序可以读取钥匙串里智能体的密钥分片。每一笔转账仍然要你在 CoinWallet App 里批准。CoinsDo 正在修复。
+- **OpenClaw 搭配 DeepSeek Flash 4.1：** 先运行一次 `openclaw config set agents.defaults.thinkingDefault medium`。不设置的话，智能体自己的思考过程可能会出现在回复里。
 - **Linux：** 千万不要删除或替换主密钥文件和钱包数据文件夹。换到新服务器，就要重新建一个钱包 Room。
 - **测试网：** App 默认只显示主网。想先用测试网试试，可以问智能体。
 
@@ -137,7 +139,7 @@ openclaw plugins uninstall coinwallet --force
 > **卸载之前：** 钱包里还有资产时，千万不要删除钱包数据文件夹或它的主密钥。里面存着智能体的密钥分片。没有它，智能体就无法签名，2/2 的钱包也就完全无法转账。卸载技能不会动它们。
 >
 > - macOS：`~/Library/Application Support/coinsdo-wallet-mcp`（主密钥存在 Mac 钥匙串里，名为「com.coinsdo.wallet.secure」，千万别删）
-> - Linux：`~/.config/coinsdo-wallet-mcp`（如果有 `master.key` 文件，也一起保留）
+> - Linux：`~/.config/coinsdo-wallet-mcp`（主密钥是里面的 `.key/master.key`）
 >
 > 请先在 App 里把资产转出去。
 
