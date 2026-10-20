@@ -24,7 +24,7 @@ Open one card per task, by its path in this folder. Follow it.
 
 ## Start every wallet task
 
-1. First wallet call of the session: `get_wallets`, alone. Never call `status` at all. Cards give each tool's arguments: call tools right away, no schema lookup. Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_wallets", "arguments": {}}]}`. OpenClaw: `tool_call {"id": "coinwallet__get_wallets", "args": {}}`. Never nest arguments deeper; `invalid wallet id: 0` = nested: call again flat.
+1. First call: `get_wallets`, alone. Never `status`. Cards give each tool's arguments: no schema lookup. Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_wallets", "arguments": {}}]}`. OpenClaw: `tool_call {"id": "coinwallet__get_wallets", "args": {}}`. Never nest arguments deeper; `invalid wallet id: 0` = nested: call again flat.
 2. Then open the task's card from the table, before any other wallet call (Hermes: `skill_view` with name `coinwallet` and `file_path` `references/cards/<card>.md`). It has the steps, arguments and traps; this file alone is not enough.
 3. One tool call at a time, never two in one step.
 4. Read the wallets:
@@ -42,16 +42,16 @@ Keep no memory (state file, Host memory): take facts only from MCP replies and t
 
 - Stop. Tell the user in one plain line what failed.
 - The only follow-up allowed: run `python3 <this skill folder>/scripts/mcp.py check` and tell the user its `say:` line.
-- `uninitialized` error → the service is still starting. Run `scripts/mcp.py check`, then call the tool once more.
+- `uninitialized` → still starting: run `scripts/mcp.py check`, then call once more.
 - Reach the service only with the `coinwallet` tools. Never the terminal, `curl`, `ps`, `lsof`, log files, the MCP data folder or Host config files.
 - Never take a wallet id or any other id from error text.
 - After an error, never reinstall or re-register the service, run it with `-clean-data` or `-r`, set its `HOME`, or touch keychain items `com.coinsdo.wallet.secure` or the data folder's `.key/`: it loses the shard.
 
 ## Talk
 
-- Chinese → the user's own script (碼 → Traditional, 码 → Simplified). Mixed languages → the non-English one. Follow the latest real sentence. No clear language (a code, an address, "ok") → keep the current one, else English.
+- Chinese → the user's script: 码/钱/这 → Simplified, 碼/錢/這 → Traditional. Mixed languages → the non-English one. Follow the latest real sentence. No clear language (a code, an address, "ok") → keep the current one, else English.
 - Short replies. One question at a time, except missing send fields: all in one message.
-- Copy every address exactly from the user or a tool reply. Spaced or cut short → ask again.
+- Copy every address exactly from the user or a tool reply. Spaced or cut short → ask again. Never check one yourself (no code): the service checks it.
 - Never write an Invitation code back, even a bad one.
 - Never show tool names, ids or JSON.
 - Only CoinWallet tasks. Other Apps, banks, WeChat → "I can only help with your CoinWallet wallet." No guides.

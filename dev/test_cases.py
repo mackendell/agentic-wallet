@@ -495,13 +495,16 @@ def check_tag_parsed(ctx):
     return out
 
 
+ZH_REQUEST = re.compile(r"请.{0,6}(告诉|提供|给|发|贴)|麻烦")  # a request without a question mark ("请一次告诉我…")
+
+
 def check_vague_send(ctx):
     """M1 (zh-Hans): "send my friend some usdt" → one message asks amount + recipient address + Chain (USDT is on
     3 Chains), guesses nothing, sends nothing."""
     reply = ctx["replies"][-1]
     out = common(ctx)
     out.update(no_send_checks(ctx))
-    out.update({"asks": asked(reply) or "请提供" in reply or "请告诉" in reply,
+    out.update({"asks": asked(reply) or bool(ZH_REQUEST.search(reply)),
                 "asks_amount": any(w in reply for w in ("多少", "金额", "数量")),
                 "asks_address": "地址" in reply,
                 "asks_chain": any(w in reply for w in ("链", "網絡", "网络", "Tron", "TRX", "BSC", "Ethereum", "ETH")),
@@ -514,7 +517,7 @@ def check_name_only(ctx):
     reply = ctx["replies"][-1]
     out = common(ctx)
     out.update(no_send_checks(ctx))
-    out.update({"asks_address": "地址" in reply and (asked(reply) or "请提供" in reply or "请发" in reply or "请告诉" in reply),
+    out.update({"asks_address": "地址" in reply and (asked(reply) or bool(ZH_REQUEST.search(reply))),
                 "no_address_guessed": not ADDRESS.findall(reply) or all(a in str(ctx["mcp"]) for a in ADDRESS.findall(reply)),
                 "zh_hans": lang_ok(reply, "zh-Hans")})
     return out
