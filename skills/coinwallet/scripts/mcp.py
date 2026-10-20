@@ -486,7 +486,8 @@ def go_back(binary, failed, reason, args, backup):
     status, count = start_once(binary, args.user)
     out(result="fallback", mcp="went back to " + vname(target) + " (" + vname(failed) + " failed: " + reason + ")",
         backup=backup, environment=status.get("environmentName"), wallets=count,
-        say="The new wallet service version failed its check, so I went back to " + vname(target)
+        say=("As you asked, I went back to " if reason == "asked by the user"
+             else "The new wallet service version failed its check, so I went back to ") + vname(target)
         + " on the same data. The wallet works as before.")
     return 0
 
