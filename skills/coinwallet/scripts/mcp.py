@@ -148,31 +148,24 @@ def installed_version(binary):
 
 def master_key_env(create=False):
     """Env the service needs for its master key. macOS uses the keychain: none.
-    Linux order: COINSDO_MASTER_KEY_FILE, our own key file, /etc/machine-id, else create a key file once."""
+    Linux (v1.0.9+): the service reads COINSDO_MASTER_KEY_FILE, else the Docker secret
+    /run/secrets/coinsdo_master_key, else it makes its own key once in <data folder>/.key/ and keeps it.
+    So only a key file the user set is passed on. Never create, move or replace a key here."""
     if is_mac():
         return {}
     key_file = os.environ.get("COINSDO_MASTER_KEY_FILE")
     if key_file:
         return {"COINSDO_MASTER_KEY_FILE": key_file}
-    own_key = data_dir() / "master.key"
-    if own_key.is_file():
-        return {"COINSDO_MASTER_KEY_FILE": str(own_key)}
     if os.environ.get("COINSDO_MASTER_KEY"):
         raise Stop("needs_user", "COINSDO_MASTER_KEY is set in this shell. Add it to the Host's MCP config by hand. "
                    "Never change it: a new master key loses the agent's key shard.", 2)
-    machine_id = Path("/etc/machine-id")
-    try:
-        if machine_id.read_text().strip():
-            return {}
-    except OSError:
-        pass
-    if not create:
-        raise Stop("failed", "This machine has no /etc/machine-id and no master key file. Run install once.")
-    own_key.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    handle = os.open(str(own_key), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(handle, "wb") as stream:
-        stream.write(secrets.token_bytes(32))
-    return {"COINSDO_MASTER_KEY_FILE": str(own_key)}
+    return {}
+
+
+def own_key_file():
+    """The key file the service made itself on Linux (v1.0.9+), if any. Read-only: never write or delete it."""
+    path = data_dir() / ".key" / "master.key"
+    return path if (not is_mac() and path.is_file()) else None
 
 
 def service_env(create_key=False):
@@ -249,11 +242,16 @@ def explain_exit(stderr_text):
     if "(-60008)" in text:
         return Stop("needs_user", "The Mac keychain popup cannot show here (no desktop session). Start the service "
                     "from the Host in your logged-in Mac desktop session.", 2)
+    if "ErrLocalPasswordError" in text or "fingerprint" in text.lower():
+        hint = ("the Mac keychain is locked: log in to the Mac (unlock the keychain)" if is_mac()
+                else "the master key file is missing or changed: put the original key file back")
+        return Stop("needs_user", "The service cannot open its secure storage: " + hint + ", then run start again. "
+                    "Never run -clean-data: it deletes the agent's key shard.", 2)
     if "authentication failed" in text or "decrypt secure storage" in text:
         return Stop("failed", "The service cannot open the agent's key shard: the master key changed. Stop here and "
                     "tell the user. Never run -clean-data and never reinstall with -r: that wipes the shard.")
-    if "machine-id" in text or "MASTER_KEY" in text:
-        return Stop("failed", "The service has no master key. Run install again on this machine.")
+    if "MASTER_KEY" in text:
+        return Stop("failed", "The service cannot read its master key. Stop and tell the user; never run -clean-data.")
     last = [line for line in text.strip().splitlines() if line.strip()]
     reason = last[-1][-200:] if last else "no message"
     return Stop("failed", "The service stopped: " + reason + ". Stop and tell the user; never run -clean-data.")
@@ -466,6 +464,8 @@ def go_back(binary, failed, reason, args, backup):
     backup: the backup made before the upgrade (None when the user asked for the fallback)."""
     _minimum, tested = load_tested()
     older = [version for version in tested if version < failed]
+    if not is_mac():  # v1.0.9 changed the Linux master key: older builds cannot open its data
+        older = [version for version in older if version >= (1, 0, 9)]
     if failed in load_no_fallback() or not older:
         saved = (" The data folder backup is " + str(backup) + ".") if backup else ""
         raise Stop("failed", "There is no tested version to go back to from MCP " + vname(failed) + " (" + reason
@@ -511,14 +511,15 @@ def do_install(args):
                    + ". Ask the user before upgrading (it restarts the service).", 2, version=vname(have))
     else:
         note = "already installed " + vname(have) + " (left as is)"
-    master_key_env(create=True)
+    master_key_env()
     status, count = start_once(binary, args.user)
     out(result="ok", mcp=note, service=binary, environment=status.get("environmentName"), wallets=count,
         data_folder=status.get("dataDir") or data_dir())
-    key = master_key_env().get("COINSDO_MASTER_KEY_FILE")
+    key = master_key_env().get("COINSDO_MASTER_KEY_FILE") or own_key_file()
     if key:
-        out(master_key=key, say="Tell the user once: Never delete or replace the master key file or the MCP data "
-            "folder. Moving to a new server means a new wallet Room.")
+        out(master_key=key, say="Tell the user once: Never delete or replace the master key file " + str(key)
+            + " or the MCP data folder: the key pairs with the agent's key shard. Moving to a new server means a new "
+            "wallet Room.")
     command = register_command(args.host, binary, args.user) if args.host else None
     if command:
         out(next="run the register command below once, exactly as printed", register=command)

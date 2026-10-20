@@ -38,15 +38,9 @@ ASSETS = Path(os.environ.get("COINWALLET_TEST_ASSETS") or str(Path.home() / ".ca
 USER = "cwt-" + time.strftime("%Y%m%d%H%M%S")
 REAL_HOME = Path.home()
 
-HASHES = {
-    "v1.0.7": {
-        "service-darwin-amd64": "cddcd041e4cfbf3443a87879d6f05d576855b1b20cd29818be360e721fda9b04",
-        "service-darwin-arm64": "4ccf631450e69ba5ae62584cc632cd290be4344072861e58c2f622f97cf0ae07",
-        "service-linux-amd64": "a3f805edd8008e5d5a3b8b83516a25d6598f98ae3c85b8dc3353dd22d855f0a2",
-        "service-linux-arm64": "178d4b2a022cc297c11286b4e2749892e162a6302ca2ea06a2fd12b5416c1a33",
-    },
-}
-HASHES["v1.0.8"] = json.loads((SKILL / "mcp-tested.json").read_text())["tested"]["v1.0.8"]
+# The two tested releases these tests use (hashes from mcp-tested.json): OLD v1.0.8, NEW v1.0.9.
+HASHES = {v: h for v, h in json.loads((SKILL / "mcp-tested.json").read_text())["tested"].items()
+          if v in ("v1.0.8", "v1.0.9")}
 
 
 def asset():
@@ -132,11 +126,11 @@ class Sandbox:
         assert not IS_MAC or (self.home / "Library" / "Keychains").exists()
         return env
 
-    def mcp(self, *args, local=True, user=USER):
+    def mcp(self, *args, local=True, user=USER, env_extra=None):
         argv = [sys.executable, str(self.skill / "scripts" / "mcp.py")] + list(args) + ["--user", user]
         if local and args[0] in ("install", "upgrade", "fallback"):
             argv += ["--local-dir", str(self.assets)]
-        run = subprocess.run(argv, capture_output=True, text=True, env=self.env(), timeout=400)
+        run = subprocess.run(argv, capture_output=True, text=True, env=dict(self.env(), **(env_extra or {})), timeout=400)
         lines = {}
         for line in run.stdout.splitlines():
             key, _, value = line.partition(": ")
@@ -159,8 +153,8 @@ class Sandbox:
 class McpCli(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cached_asset("v1.0.7")
         cached_asset("v1.0.8")
+        cached_asset("v1.0.9")
 
     def setUp(self):
         self.boxes = []
@@ -177,12 +171,12 @@ class McpCli(unittest.TestCase):
     # install
 
     def test_install_downloads_newest_tested_and_prints_register(self):
-        box = self.box(tested=["v1.0.7", "v1.0.8"], minimum="v1.0.7")
+        box = self.box(tested=["v1.0.8", "v1.0.9"], minimum="v1.0.8")
         code, lines, text = box.mcp("install", "--host", "hermes", local=False)  # real GitHub download
         self.assertEqual(code, 0, text)
         self.assertEqual(lines["result"], "ok", text)
-        self.assertEqual(box.version(), "v1.0.8")
-        self.assertEqual(sha(box.binary()), HASHES["v1.0.8"][asset()])
+        self.assertEqual(box.version(), "v1.0.9")
+        self.assertEqual(sha(box.binary()), HASHES["v1.0.9"][asset()])
         self.assertEqual(lines["environment"], "prod")
         self.assertEqual(lines["wallets"], "0")
         self.assertEqual(os.path.realpath(lines["data_folder"]), os.path.realpath(str(box.data_dir())))  # service agrees on the folder
@@ -194,27 +188,27 @@ class McpCli(unittest.TestCase):
             self.assertNotEqual(xattr.returncode, 0, "binary has a quarantine flag")
 
     def test_install_leaves_newer_mcp_alone(self):
-        box = self.box(tested=["v1.0.7"], minimum="v1.0.7")
-        box.place("v1.0.8")
+        box = self.box(tested=["v1.0.8"], minimum="v1.0.8")
+        box.place("v1.0.9")
         before = sha(box.binary())
         code, lines, text = box.mcp("install")
         self.assertEqual(code, 0, text)
-        self.assertIn("already installed v1.0.8", lines["mcp"])
+        self.assertIn("already installed v1.0.9", lines["mcp"])
         self.assertEqual(sha(box.binary()), before)
 
     def test_install_below_minimum_asks_user(self):
         box = self.box()
-        box.place("v1.0.7")
+        box.place("v1.0.8")
         code, lines, text = box.mcp("install")
         self.assertEqual(code, 2, text)
         self.assertEqual(lines["result"], "needs_user")
-        self.assertEqual(box.version(), "v1.0.7")  # not upgraded without a yes
+        self.assertEqual(box.version(), "v1.0.8")  # not upgraded without a yes
 
     def test_install_rejects_wrong_checksum(self):
         box = self.box()
-        fake = box.root / "bad-assets" / "v1.0.8"
+        fake = box.root / "bad-assets" / "v1.0.9"
         fake.mkdir(parents=True)
-        shutil.copyfile(str(cached_asset("v1.0.7")), str(fake / asset()))
+        shutil.copyfile(str(cached_asset("v1.0.8")), str(fake / asset()))
         argv = [sys.executable, str(box.skill / "scripts" / "mcp.py"), "install", "--local-dir", str(box.root / "bad-assets"),
                 "--user", USER]
         run = subprocess.run(argv, capture_output=True, text=True, env=box.env(), timeout=120)
@@ -249,11 +243,11 @@ class McpCli(unittest.TestCase):
 
     def test_check_fails_below_minimum(self):
         box = self.box()
-        box.place("v1.0.7")
+        box.place("v1.0.8")
         code, lines, text = box.mcp("check")
         self.assertEqual(code, 2, text)
         self.assertEqual(lines["result"], "needs_user")
-        self.assertIn("older than the minimum v1.0.8", lines["say"])
+        self.assertIn("older than the minimum v1.0.9", lines["say"])
 
     def test_check_passes_at_minimum(self):
         box = self.box()
@@ -261,7 +255,7 @@ class McpCli(unittest.TestCase):
         self.assertEqual(code, 0, text)
         code, lines, text = box.mcp("check")
         self.assertEqual(code, 0, text)
-        self.assertEqual(lines["version"], "v1.0.8")
+        self.assertEqual(lines["version"], "v1.0.9")
         self.assertEqual(lines["wallets"], "0")
 
     def test_check_not_installed(self):
@@ -278,7 +272,7 @@ class McpCli(unittest.TestCase):
         self.assertEqual(code, 0, text)
         code, lines, text = box.mcp("start")
         self.assertEqual(code, 0, text)
-        self.assertEqual(lines["service"], "v1.0.8")
+        self.assertEqual(lines["service"], "v1.0.9")
         # A Host-owned copy holds the data folder lock: start and check must say "running", not fail.
         argv = [str(box.binary()), "-t", "stdio", "-e", "prod", "-u", USER]
         env = box.env()
@@ -357,12 +351,13 @@ class McpCli(unittest.TestCase):
 
     # upgrade
 
+    @unittest.skipIf(not IS_MAC, "Linux: no upgrade from below v1.0.9 (v1.0.9 changed the master key; old data needs -clean-data)")
     def test_upgrade_backs_up_then_restarts_newest_tested(self):
-        box = self.box(tested=["v1.0.7"], minimum="v1.0.7")
+        box = self.box(tested=["v1.0.8"], minimum="v1.0.8")
         if IS_MAC:
-            # A v1.0.7 start would make the keychain item, and v1.0.8 would then show the popup (needs a person).
-            # So v1.0.7 is only placed here; the Linux run below starts it on real data.
-            box.place("v1.0.7")
+            # A v1.0.8 start would make the keychain item, and v1.0.9 would then show the popup (needs a person).
+            # So v1.0.8 is only placed here; the Linux run below starts it on real data.
+            box.place("v1.0.8")
             marker = box.data_dir() / ".data" / "marker"
             marker.parent.mkdir(parents=True)
             marker.write_text("wallet data")
@@ -372,38 +367,39 @@ class McpCli(unittest.TestCase):
             marker = next(box.data_dir().glob(".data/**/*.db"))
         key = box.data_dir() / "master.key"
         key_before = sha(key) if key.exists() else None
-        box.set_tested(["v1.0.7", "v1.0.8"])
+        box.set_tested(["v1.0.8", "v1.0.9"])
         code, lines, text = box.mcp("upgrade")
         self.assertEqual(code, 0, text)
         self.assertEqual(lines["result"], "ok", text)
-        self.assertEqual(lines["mcp"], "upgraded v1.0.7 -> v1.0.8")
+        self.assertEqual(lines["mcp"], "upgraded v1.0.8 -> v1.0.9")
         self.assertEqual(lines["wallets"], "0")  # restarted right away and get_wallets answered
-        self.assertEqual(box.version(), "v1.0.8")
+        self.assertEqual(box.version(), "v1.0.9")
         backup = Path(lines["backup"])
         self.assertEqual(box.backups(), [backup])
-        self.assertEqual(sha(backup / "coinwallet" / "service"), HASHES["v1.0.7"][asset()])
+        self.assertEqual(sha(backup / "coinwallet" / "service"), HASHES["v1.0.8"][asset()])
         self.assertTrue((backup / marker.relative_to(box.data_dir())).is_file())
         self.assertFalse((backup / "backups").exists())
         if key_before:
             self.assertEqual(sha(key), key_before)  # same master key on Linux
         code, lines, text = box.mcp("check")
         self.assertEqual(code, 0, text)
-        self.assertEqual(lines["version"], "v1.0.8")
+        self.assertEqual(lines["version"], "v1.0.9")
 
+    @unittest.skipIf(not IS_MAC, "Linux: no upgrade from below v1.0.9 (v1.0.9 changed the master key; old data needs -clean-data)")
     def test_upgrade_stops_the_host_copy_first(self):
-        box = self.box(tested=["v1.0.7"], minimum="v1.0.7")
+        box = self.box(tested=["v1.0.8"], minimum="v1.0.8")
         if IS_MAC:
-            box.place("v1.0.7")
+            box.place("v1.0.8")
         else:
             code, _, text = box.mcp("install")  # Linux: makes the master key file when there is no machine-id
             self.assertEqual(code, 0, text)
-        box.set_tested(["v1.0.7", "v1.0.8"])
+        box.set_tested(["v1.0.8", "v1.0.9"])
         env = box.env()
         key = box.data_dir() / "master.key"
         if key.exists():
             env["COINSDO_MASTER_KEY_FILE"] = str(key)
         # The Host's copy holds the data folder lock. It runs under another throwaway account so that on macOS
-        # the v1.0.8 start under USER makes a fresh keychain item (silent) instead of showing a popup.
+        # the v1.0.9 start under USER makes a fresh keychain item (silent) instead of showing a popup.
         host = subprocess.Popen([str(box.binary()), "-t", "stdio", "-e", "prod", "-u", USER + "-host"],
                                 stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
         try:
@@ -427,7 +423,7 @@ class McpCli(unittest.TestCase):
         before = sha(box.binary())
         code, lines, text = box.mcp("upgrade")
         self.assertEqual(code, 0, text)
-        self.assertIn("already v1.0.8", lines["mcp"])
+        self.assertIn("already v1.0.9", lines["mcp"])
         self.assertEqual(sha(box.binary()), before)
         self.assertEqual(box.backups(), [])
 
@@ -441,78 +437,109 @@ class McpCli(unittest.TestCase):
 
     def test_failed_upgrade_falls_back_to_previous_tested_on_same_data(self):
         box = self.box()
-        code, _, text = box.mcp("install")  # v1.0.8 on real data
+        code, _, text = box.mcp("install")  # v1.0.9 on real data
         self.assertEqual(code, 0, text)
         key = box.data_dir() / "master.key"
         key_before = sha(key) if key.exists() else None
-        box.set_tested(extra={"v1.0.9": box.fake_build("v1.0.9")})
+        box.set_tested(extra={"v1.0.10": box.fake_build("v1.0.10")})
         code, lines, text = box.mcp("upgrade")
         self.assertEqual(code, 0, text)
         self.assertEqual(lines["result"], "fallback", text)
-        self.assertIn("went back to v1.0.8", lines["mcp"])
+        self.assertIn("went back to v1.0.9", lines["mcp"])
         self.assertIn("boom", lines["mcp"])
         self.assertEqual(lines["wallets"], "0")  # the wallet data is still readable
-        self.assertEqual(sha(box.binary()), HASHES["v1.0.8"][asset()])
+        self.assertEqual(sha(box.binary()), HASHES["v1.0.9"][asset()])
         self.assertEqual(len(box.backups()), 2)  # before the upgrade, and before going back
-        self.assertEqual(sha(box.backups()[0] / "coinwallet" / "service"), HASHES["v1.0.8"][asset()])
+        self.assertEqual(sha(box.backups()[0] / "coinwallet" / "service"), HASHES["v1.0.9"][asset()])
         if key_before:
             self.assertEqual(sha(key), key_before)
         code, lines, text = box.mcp("check")
         self.assertEqual(code, 0, text)
-        self.assertEqual(lines["version"], "v1.0.8")
+        self.assertEqual(lines["version"], "v1.0.9")
 
     def test_failed_upgrade_without_fallback_stops(self):
         box = self.box()
         code, _, text = box.mcp("install")
         self.assertEqual(code, 0, text)
-        box.set_tested(extra={"v1.0.9": box.fake_build("v1.0.9")}, no_fallback=["v1.0.9"])
+        box.set_tested(extra={"v1.0.10": box.fake_build("v1.0.10")}, no_fallback=["v1.0.10"])
         code, lines, text = box.mcp("upgrade")
         self.assertEqual(code, 1, text)
         self.assertEqual(lines["result"], "failed")
         self.assertIn("no tested version to go back to", lines["say"])
         self.assertIn(str(box.backups()[0]), lines["say"])
-        self.assertEqual(box.version(), "v1.0.9")  # left as is; the user and maintainer decide
+        self.assertEqual(box.version(), "v1.0.10")  # left as is; the user and maintainer decide
 
-    @unittest.skipIf(IS_MAC, "v1.0.7 opening a keychain item v1.0.8 made shows a popup (needs a person)")
+    @unittest.skipIf(IS_MAC, "v1.0.8 opening a keychain item v1.0.9 made shows a popup (needs a person)")
     def test_fallback_command_reinstalls_previous_tested(self):
-        box = self.box(tested=["v1.0.7", "v1.0.8"], minimum="v1.0.7")
-        code, _, text = box.mcp("install")  # v1.0.8
+        """Linux: v1.0.9 changed the master key, so going back below v1.0.9 is refused and nothing changes."""
+        box = self.box(tested=["v1.0.8", "v1.0.9"], minimum="v1.0.8")
+        code, _, text = box.mcp("install")  # v1.0.9
         self.assertEqual(code, 0, text)
         code, lines, text = box.mcp("fallback")
-        self.assertEqual(code, 0, text)
-        self.assertEqual(lines["result"], "fallback", text)
-        self.assertEqual(box.version(), "v1.0.7")
-        self.assertEqual(lines["wallets"], "0")
-        self.assertEqual(len(box.backups()), 1)
+        self.assertEqual(code, 1, text)
+        self.assertEqual(lines["result"], "failed", text)
+        self.assertIn("no tested version to go back to", lines["say"])
+        self.assertEqual(box.version(), "v1.0.9")
 
     # Linux master key
 
     @unittest.skipIf(IS_MAC or not IN_CONTAINER, "needs a throwaway Linux container")
     def test_linux_master_key(self):
-        machine_id = Path("/etc/machine-id")
+        """v1.0.9 on Linux: with no key configured the service makes its own key in <data>/.key/ on the first start
+        and keeps it; mcp.py passes no key env, never touches the key, and says once not to delete it."""
         box = self.box()
-        key = box.data_dir() / "master.key"
-        if machine_id.exists() and machine_id.read_text().strip():
-            code, lines, text = box.mcp("install", "--host", "hermes")
-            self.assertEqual(code, 0, text)
-            self.assertFalse(key.exists())
-            self.assertNotIn("COINSDO_MASTER_KEY_FILE", lines["register"])
-            return
+        key = box.data_dir() / ".key" / "master.key"
         code, lines, text = box.mcp("install", "--host", "hermes")
         self.assertEqual(code, 0, text)
-        self.assertTrue(key.is_file())
+        self.assertTrue(key.is_file(), text)
         self.assertEqual(oct(key.stat().st_mode & 0o777), "0o600")
-        self.assertEqual(len(key.read_bytes()), 32)
-        self.assertIn('"COINSDO_MASTER_KEY_FILE": "' + str(key) + '"', lines["register"])
+        self.assertNotIn("COINSDO_MASTER_KEY_FILE", lines["register"])
+        self.assertIn(str(key), lines["master_key"])
         first = sha(key)
-        code, _, text = box.mcp("install")  # second install: same key file, service still opens its data
+        for command in ("install", "start", "check", "upgrade"):  # same version again: same key, data still opens
+            code, _, text = box.mcp(command)
+            self.assertEqual(code, 0, command + ": " + text)
+            self.assertEqual(sha(key), first, command)
+
+    @unittest.skipIf(IS_MAC or not IN_CONTAINER, "needs a throwaway Linux container")
+    def test_linux_key_file_env_is_passed_through(self):
+        box = self.box()
+        key = box.root / "my.key"
+        key.write_bytes(os.urandom(32))
+        os.chmod(str(key), 0o600)
+        code, lines, text = box.mcp("install", "--host", "hermes", env_extra={"COINSDO_MASTER_KEY_FILE": str(key)})
         self.assertEqual(code, 0, text)
-        self.assertEqual(sha(key), first)
+        self.assertIn('"COINSDO_MASTER_KEY_FILE": "' + str(key) + '"', lines["register"])
+        self.assertFalse((box.data_dir() / ".key" / "master.key").exists())
+
+    @unittest.skipIf(IS_MAC or not IN_CONTAINER, "needs a throwaway Linux container")
+    def test_linux_docker_secret(self):
+        secret = Path("/run/secrets/coinsdo_master_key")
+        secret.parent.mkdir(parents=True, exist_ok=True)
+        secret.write_bytes(os.urandom(32))
+        os.chmod(str(secret), 0o600)
+        try:
+            box = self.box()
+            code, lines, text = box.mcp("install", "--host", "hermes")
+            self.assertEqual(code, 0, text)
+            self.assertNotIn("COINSDO_MASTER_KEY_FILE", lines["register"])
+            self.assertFalse((box.data_dir() / ".key" / "master.key").exists())  # the secret is used
+            code, _, text = box.mcp("check")
+            self.assertEqual(code, 0, text)
+        finally:
+            secret.unlink()
+
+    @unittest.skipIf(IS_MAC or not IN_CONTAINER, "needs a throwaway Linux container")
+    def test_linux_changed_key_stops_and_never_cleans(self):
+        box = self.box()
+        code, _, text = box.mcp("install")
+        self.assertEqual(code, 0, text)
+        key = box.data_dir() / ".key" / "master.key"
+        key.write_bytes(os.urandom(32))  # what a lost or replaced key file looks like
         code, lines, text = box.mcp("start")
-        self.assertEqual(code, 0, text)
-        code, lines, text = box.mcp("check")
-        self.assertEqual(code, 0, text)
-        self.assertEqual(sha(key), first)
+        self.assertNotEqual(code, 0, text)
+        self.assertIn("never run -clean-data", lines["say"].lower().replace("never run `-clean-data`", "never run -clean-data"))
+        self.assertTrue(any(box.data_dir().glob(".data/**/*.db")))  # data left as is
 
 
 if __name__ == "__main__":

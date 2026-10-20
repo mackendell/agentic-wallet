@@ -32,4 +32,4 @@ The user asked to update CoinWallet. One yes covers both: the skill and the wall
 - Run `upgrade`, never `install`: install leaves an old service as it is.
 - The skill update command fails → tell the user its last line and stop. Never run `upgrade` before the skill update worked.
 - After the upgrade the `coinwallet` tools stop working in this chat. That is expected. Never call them again in this chat.
-- Never delete or move the MCP data folder, its `backups` folder or the master key file.
+- Never delete or move the MCP data folder, its `backups` or `.key` folder, or a master key file: the key pairs with the agent's key shard.

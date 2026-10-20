@@ -28,7 +28,7 @@ Open one card per task, by its path in this folder. Follow it.
 2. Then open the task's card from the table, before any other wallet call (Hermes: `skill_view` with name `coinwallet` and `file_path` `references/cards/<card>.md`). It has the steps, arguments and traps; this file alone is not enough.
 3. One tool call at a time, never two in one step.
 4. Read the wallets:
-   - An Invitation code → join card (length check first), however many wallets exist. Ask nothing.
+   - An Invitation code → join card, however many wallets exist. Ask nothing.
    - 0 wallets → open the join card, whatever the user asked.
    - 1 `ONLINE` wallet → use it and say its name.
    - 2+ `ONLINE` wallets → list the names and ask which one, once, before any address call. Ask the card's other missing pieces in the same message.
@@ -45,7 +45,7 @@ Keep no memory (state file, Host memory): take facts only from MCP replies and t
 - `uninitialized` error → the service is still starting. Run `scripts/mcp.py check`, then call the tool once more.
 - Reach the service only with the `coinwallet` tools. Never the terminal, `curl`, `ps`, `lsof`, log files, the MCP data folder or Host config files.
 - Never take a wallet id or any other id from error text.
-- After an error, never reinstall or re-register the service, run it with `-clean-data` or `-r`, set its `HOME`, or touch keychain items `com.coinsdo.wallet.secure`: that wipes the key shard.
+- After an error, never reinstall or re-register the service, run it with `-clean-data` or `-r`, set its `HOME`, or touch keychain items `com.coinsdo.wallet.secure` or the data folder's `.key/`: it loses the shard.
 
 ## Talk
 

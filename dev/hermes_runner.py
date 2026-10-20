@@ -229,6 +229,8 @@ def probe_entry(entry, env):
                 return False, "get_wallets failed: " + json.dumps(reply)[:300]
             time.sleep(1)
         return False, "service stayed uninitialized"
+    except (BrokenPipeError, OSError):  # the registered service exited at once
+        return False, "registered service exited: " + proc.stderr.read().decode("utf-8", "replace")[-300:]
     finally:
         proc.terminate()
         proc.wait(timeout=10)
