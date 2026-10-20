@@ -4,7 +4,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-Hans.md) · [繁體中文](README.zh-Hant.md) · 日本語
 
-**AI agents:** the install steps are in "For AI agents" in the English [README.md](../../README.md).
+**Installing with an AI agent:** the agent runs the "Install steps" in the English [README.md](../../README.md).
 
 AI エージェントが CoinWallet の MPC ウォレットで暗号資産を受け取り、送金できるようになります。送金はすべて、あなたが CoinWallet アプリで承認します。
 

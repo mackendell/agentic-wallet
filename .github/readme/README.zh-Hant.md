@@ -4,7 +4,7 @@
 
 [English](../../README.md) · [简体中文](README.zh-Hans.md) · 繁體中文 · [日本語](README.ja.md)
 
-**AI agents:** the install steps are in "For AI agents" in the English [README.md](../../README.md).
+**Installing with an AI agent:** the agent runs the "Install steps" in the English [README.md](../../README.md).
 
 讓你的 AI 智能體在 CoinWallet MPC 錢包裡收幣、轉帳。每一筆轉帳都要你在 CoinWallet App 裡批准。
 
