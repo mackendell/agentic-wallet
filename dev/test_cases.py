@@ -4,7 +4,7 @@ A case is: a fixture, the user's turns (fixed scripted replies), a Task budget a
 
 Fixtures (the MCP service the agent sees, always through dev/mcp_proxy.py):
   install    no service yet: the agent sets it up (case setup)
-  seeded     an older install: skill VERSION 0.0.1 (tested MCP v1.0.7) and MCP v1.0.7 registered (case update)
+  seeded     an older install: skill VERSION 0.0.1 (tested MCP v1.0.8) and MCP v1.0.8 registered (case update)
   fresh      a throwaway service account with 0 wallets, read tools only
   agenttest  the read-only Testnet wallets fix34-a, fix34-b (account cwr-fix34, rebuilt in #34: the old
              `-u agenttest` data was lost) over HTTP,
@@ -157,11 +157,11 @@ def check_update(ctx):
     state, replies = ctx["state"], ctx["replies"]
     first, last = (replies[0] if replies else ""), (replies[-1] if replies else "")
     out = {
-        "nothing_changed_before_yes": state["before_yes"] == ("v1.0.7", "0.0.1"),
+        "nothing_changed_before_yes": state["before_yes"] == (state["seed_old"], "0.0.1"),
         "asked_first": "?" in first,
         "skill_updated": state["skill_version"] == state["repo_skill_version"],
-        "mcp_upgraded": state["service_version"] == "v1.0.8",
-        "backup_before_upgrade": "v1.0.7" in state["backup_versions"],
+        "mcp_upgraded": state["service_version"] == state["newest"],
+        "backup_before_upgrade": state["seed_old"] in state["backup_versions"],
         "mcp_check_ok": "result: ok" in state["mcp_check"],
         "says_new_chat": "new chat" in last.lower(),
     }

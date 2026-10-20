@@ -1,11 +1,17 @@
 {
-  "minimum": "v1.0.8",
+  "minimum": "v1.0.9",
   "tested": {
     "v1.0.8": {
       "service-darwin-amd64": "257e69546563a7ed7b63a1ea3aad04df94a9ba5b9af66f644bbb1cea8fa43dac",
       "service-darwin-arm64": "e82ce35d0a5a9b8de3edaa0092a055434d143f8d4dd2267111bd4f19831e5569",
       "service-linux-amd64": "c7df2333f20175ca18793a4a514900ff59a7c3929c4d122ed8452f1ad27b9092",
       "service-linux-arm64": "ff3b06ae9826da77c0d5f01f96246e8d997028664e19d6d796071808f08d1a46"
+    },
+    "v1.0.9": {
+      "service-darwin-amd64": "1009b2ea78191b0d30754e48ba672c4e939b6a59a7fa9579deb343bf7b8cd6bd",
+      "service-darwin-arm64": "d2a014e52dab5bce8909932662d8d4addbcbb203aeaaea9a52e817c56104d507",
+      "service-linux-amd64": "baee7a5145cd14dca2aee06218821ba9b057f2260f36b528c78eaca99e719a3b",
+      "service-linux-arm64": "3e92a1150a8c642f37297a21ee39fe3933dfb12b2985bc245d472546fc411307"
     }
   },
   "no_fallback": []

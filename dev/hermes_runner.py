@@ -260,17 +260,21 @@ def service_version(binary):
     return match.group(0) if match else None
 
 
+SEED_OLD = "v1.0.8"  # the previous tested MCP: what a user who installed before this release runs
+
+
 def seed_update(run_dir, home, hermes_home, env, user, source, repo):
-    """An older install: the skill with VERSION 0.0.1 and only MCP v1.0.7 tested, MCP v1.0.7 placed and registered.
-    The registered copy runs as account <user>-host; mcp.py upgrade runs as <user>. On macOS that keeps every
-    keychain item first-made (silent): v1.0.8 never opens an item v1.0.7 made, which would show a popup."""
+    """An older install: the skill with VERSION 0.0.1 and only MCP SEED_OLD tested, MCP SEED_OLD placed and registered.
+    Default: the registered copy runs as account <user>-host and mcp.py upgrade as <user>, so on macOS every keychain
+    item is first-made (silent). SEED_SAME_ACCOUNT=1: one account, and SEED_OLD starts once before the agent, so the
+    upgraded service opens an item the old one made: the real user's path, with the one-time "Always Allow" popup."""
     sys.path.insert(0, str(ROOT / "tests"))
     from test_mcp_cli import HASHES, asset, cached_asset
     old = run_dir / "old-repo"
     shutil.copytree(str(ROOT / "skills" / "coinwallet"), str(old / "skills" / "coinwallet"))
     (old / "skills" / "coinwallet" / "VERSION").write_text("0.0.1\n")
     (old / "skills" / "coinwallet" / "mcp-tested.json").write_text(json.dumps(
-        {"minimum": "v1.0.7", "tested": {"v1.0.7": HASHES["v1.0.7"]}, "no_fallback": []}))
+        {"minimum": SEED_OLD, "tested": {SEED_OLD: HASHES[SEED_OLD]}, "no_fallback": []}))
     identifier = ("CoinsDo" if source == "local" else repo.split("/")[0]) + "/agentic-wallet/skills/coinwallet"
     install = subprocess.run([str(HERMES_PY), str(ROOT / "dev" / "hermes_local_install.py"), str(old), "skills",
                               "install", identifier, "--yes"], env=env, capture_output=True, text=True)
@@ -278,10 +282,14 @@ def seed_update(run_dir, home, hermes_home, env, user, source, repo):
         raise SystemExit("seeding the old skill failed: " + install.stdout[-500:] + install.stderr[-500:])
     binary = data_dir(home) / "coinwallet" / "service"
     binary.parent.mkdir(parents=True)
-    shutil.copyfile(str(cached_asset("v1.0.7")), str(binary))
+    shutil.copyfile(str(cached_asset(SEED_OLD)), str(binary))
     os.chmod(str(binary), 0o755)
-    assert asset() in HASHES["v1.0.7"]
-    entry = {"command": str(binary), "args": ["-t", "stdio", "-e", "prod", "-u", user + "-host"]}
+    assert asset() in HASHES[SEED_OLD]
+    same = os.environ.get("SEED_SAME_ACCOUNT") == "1"
+    entry = {"command": str(binary), "args": ["-t", "stdio", "-e", "prod", "-u", user if same else user + "-host"]}
+    if same:  # the old service runs once under the user's account, as on the user's machine before the update
+        subprocess.run([sys.executable, str(old / "skills" / "coinwallet" / "scripts" / "mcp.py"), "check"], env=env,
+                       capture_output=True, text=True, timeout=300)
     if not IS_MAC and not Path("/etc/machine-id").is_file():
         key = data_dir(home) / "master.key"
         key.write_bytes(os.urandom(32))
@@ -292,9 +300,9 @@ def seed_update(run_dir, home, hermes_home, env, user, source, repo):
     return binary
 
 
-def update_state(home, hermes_home, env, binary, before_yes):
+def update_state(home, hermes_home, env, binary, before_yes, skill=None):
     """What the update case's check needs (test_cases.check_update): versions before the "yes" and now."""
-    skill = hermes_home / "skills" / "coinwallet"
+    skill = skill or hermes_home / "skills" / "coinwallet"
     backups = sorted((data_dir(home) / "backups").glob("*/coinwallet/service"))
     check = subprocess.run([sys.executable, str(skill / "scripts" / "mcp.py"), "check"], env=env,
                            capture_output=True, text=True, timeout=300)
@@ -304,7 +312,9 @@ def update_state(home, hermes_home, env, binary, before_yes):
         "repo_skill_version": (ROOT / "skills" / "coinwallet" / "VERSION").read_text().strip(),
         "service_version": service_version(binary),
         "backup_versions": [service_version(path) for path in backups],
-        "mcp_check": check.stdout,
+        "mcp_check": check.stdout, "seed_old": SEED_OLD,
+        "newest": max(json.loads((ROOT / "skills" / "coinwallet" / "mcp-tested.json").read_text())["tested"],
+                      key=lambda v: tuple(int(x) for x in v.lstrip("v").split("."))),
     }
 
 

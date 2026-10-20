@@ -390,6 +390,62 @@ def normalized(use):
     return name, data
 
 
+def seed_update_host(host, driver, run_dir, home, env, work, user):
+    """case update on OpenClaw, Claude Code, Codex: the skill at VERSION 0.0.1 (MCP SEED_OLD tested) installed with the
+    README command from a local marketplace copy, MCP SEED_OLD placed and registered for real (no proxy). Then the copy
+    is moved to this checkout's HEAD, so the Host's update command finds the new version (as GitHub would)."""
+    sys.path.insert(0, str(ROOT / "tests"))
+    from test_mcp_cli import HASHES, asset, cached_asset
+    old_v = hermes_runner.SEED_OLD
+    old = run_dir / "old-repo"
+
+    def export(version):
+        if old.exists():
+            shutil.rmtree(str(old))
+        old.mkdir()
+        tar = subprocess.run(["git", "-C", str(ROOT), "archive", "HEAD"], capture_output=True, check=True).stdout
+        subprocess.run(["tar", "-x", "-C", str(old)], input=tar, check=True)
+        if version:
+            skill = old / "skills" / "coinwallet"
+            (skill / "VERSION").write_text(version + "\n")
+            (skill / "mcp-tested.json").write_text(json.dumps(
+                {"minimum": old_v, "tested": {old_v: HASHES[old_v]}, "no_fallback": []}))
+            for manifest in (old / ".claude-plugin" / "plugin.json", old / ".codex-plugin" / "plugin.json"):
+                data = json.loads(manifest.read_text())
+                data["version"] = version
+                manifest.write_text(json.dumps(data, indent=2))
+        for argv in (["git", "init", "-q"], ["git", "add", "-A"],
+                     ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", version or "head"]):
+            subprocess.run(argv, cwd=str(old), capture_output=True)
+
+    export("0.0.1")
+    for argv in INSTALL[host](str(old)):
+        subprocess.run(argv, env=env, cwd=str(work), capture_output=True, text=True, timeout=300, stdin=subprocess.DEVNULL)
+    if not (driver.skill_dir(home) / "VERSION").is_file():
+        raise SystemExit("seeding the old skill failed for " + host)
+    binary = hermes_runner.data_dir(home) / "coinwallet" / "service"
+    binary.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(str(cached_asset(old_v)), str(binary))
+    os.chmod(str(binary), 0o755)
+    assert asset() in HASHES[old_v]
+    same = os.environ.get("SEED_SAME_ACCOUNT") == "1"
+    service_args = ["-t", "stdio", "-e", "prod", "-u", user if same else user + "-host"]
+    if same:
+        subprocess.run([sys.executable, str(driver.skill_dir(home) / "scripts" / "mcp.py"), "check"], env=env,
+                       capture_output=True, text=True, timeout=300)
+    entry = {"command": str(binary), "args": service_args}
+    if host == "claude-code":
+        argv = [REAL["claude"], "mcp", "add-json", "--scope", "user", "coinwallet",
+                json.dumps(dict({"type": "stdio"}, **entry))]
+    elif host == "codex":
+        argv = [REAL["codex"], "mcp", "add", "coinwallet", "--", str(binary)] + service_args
+    else:
+        argv = [REAL["openclaw"], "mcp", "set", "coinwallet", json.dumps(entry)]
+    subprocess.run(argv, env=env, cwd=str(work), capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
+    export(None)  # the "GitHub" side now has this checkout's HEAD
+    return binary
+
+
 def case_run(args, number, base, services):
     """A case after setup: same fixture, turns, human steps and checks as dev/hermes_runner.py."""
     case = CASES[args.case]
@@ -402,12 +458,18 @@ def case_run(args, number, base, services):
     values = dict(case.get("values", {}))
     values.update(dict(item.split("=", 1) for item in (args.set or [])))
     mcp_log = run_dir / "mcp.jsonl"
-    if fixture == "newbie":
-        newbie_service(base, number, services)
-    url = args.agenttest_url if fixture == "agenttest" else services[fixture].url
-    policy = case.get("policy") or ("own" if fixture == "own" else "read")
-    preinstall(args.host, driver, env, work, target, url, policy, case.get("hide", []), mcp_log, case.get("fail", []))
-    truth = read_truth(url, "all" if case.get("balances") else ())
+    binary, before_yes, url = None, None, None
+    if fixture == "seeded":
+        binary = seed_update_host(args.host, driver, run_dir, home, env, work, user)
+        truth = {}
+    else:
+        if fixture == "newbie":
+            newbie_service(base, number, services)
+        url = args.agenttest_url if fixture == "agenttest" else services[fixture].url
+        policy = case.get("policy") or ("own" if fixture == "own" else "read")
+        preinstall(args.host, driver, env, work, target, url, policy, case.get("hide", []), mcp_log,
+                   case.get("fail", []))
+        truth = read_truth(url, "all" if case.get("balances") else ())
     if case.get("hide"):
         truth["wallets"] = [w for w in truth["wallets"] if w["walletId"] not in case["hide"]]
     turns = list(case["turns"]) + list(args.reply or [])
@@ -433,6 +495,9 @@ def case_run(args, number, base, services):
         timed_out = timed_out or turn_timeout
         replies.append(driver.reply)
         marks.append(len(read_log(mcp_log)))
+        if binary and before_yes is None:
+            before_yes = (hermes_runner.service_version(binary),
+                          (driver.skill_dir(home) / "VERSION").read_text().strip())
         if turn_timeout:
             break
     (run_dir / "events.jsonl").write_text("\n".join(json.dumps(e) for e in events) + "\n", encoding="utf-8")
@@ -449,8 +514,10 @@ def case_run(args, number, base, services):
            "mcp_by_turn": [mcp[(marks[i - 1] if i else 0):m] for i, m in enumerate(marks)],
            "replies": replies, "truth": truth, "values": values, "files": files, "prompts": sent,
            "tool_inputs": [normalized(u) for u in uses], "db_tool_calls": [],
-           "truth_after": read_truth(url) if fixture == "own" else {}, "settled": settled,
-           "sent_bundles": sent_bundles(mcp), "state": {}}
+           "truth_after": read_truth(url) if fixture == "own" and url else {}, "settled": settled,
+           "sent_bundles": sent_bundles(mcp),
+           "state": hermes_runner.update_state(home, None, env, binary, before_yes, driver.skill_dir(home))
+           if fixture == "seeded" else {}}
     try:
         checks = case["check"](ctx)
     except Exception as exc:  # noqa: BLE001 - a broken fixture or reply shape is a failed run, not a crash
@@ -458,7 +525,8 @@ def case_run(args, number, base, services):
     passed = all(checks.values())
     calls = driver.calls if args.host == "openclaw" else len(uses)
     budget = case.get("budget", {})
-    account = "agenttest (read tools only)" if fixture == "agenttest" else services[fixture].user
+    account = ("agenttest (read tools only)" if fixture == "agenttest"
+               else user if fixture == "seeded" else services[fixture].user)
     record = {
         "case": args.case, "host": args.host, "model": args.model or "codex default", "source": args.source,
         "run": number, "ok": bool(passed) and not timed_out, "checks": checks, "timed_out": timed_out,
@@ -527,7 +595,7 @@ def one_run(args, number, base):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--host", choices=sorted(HOSTS), required=True)
-    parser.add_argument("--case", choices=sorted(c for c in CASES if CASES[c]["fixture"] != "seeded"), default="setup")
+    parser.add_argument("--case", choices=sorted(CASES), default="setup")
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--model", help="default: openclaw deepseek/deepseek-v4-flash, claude-code sonnet, codex its own")
     parser.add_argument("--source", choices=("github", "local"), default="github")
