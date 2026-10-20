@@ -235,10 +235,10 @@ def explain_exit(stderr_text):
         return Stop("running", "The service is already running (your Host started it).", 0)
     if "(-128)" in text:
         return Stop("needs_user", "The Mac keychain popup was denied. Run start again, then type your Mac login "
-                    "password and click Always Allow. Never click Deny.", 2)
+                    "password and click Allow. Never click Deny.", 2)
     if "(-60006)" in text:
         return Stop("needs_user", "The Mac keychain popup was not answered in time. Run start again, then type your "
-                    "Mac login password and click Always Allow.", 2)
+                    "Mac login password and click Allow.", 2)
     if "(-60008)" in text:
         return Stop("needs_user", "The Mac keychain popup cannot show here (no desktop session). Start the service "
                     "from the Host in your logged-in Mac desktop session.", 2)

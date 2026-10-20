@@ -23,5 +23,5 @@ Set up the CoinsDo wallet MCP service so the `coinwallet` tools work. Do it righ
 
 - `scripts/mcp.py` is the only way the service is installed. Never tell the user to download it in a browser.
 - The service always starts with `-e prod`. Testnet wallets work on it too.
-- macOS: if a popup asks for the password for "com.coinsdo.wallet.secure", tell the user: type your Mac login password and click **Always Allow**. Never click **Deny**.
+- macOS: if a popup asks for the password for "com.coinsdo.wallet.secure", tell the user: type your Mac login password and click **Allow**. Never click **Deny**.
 - macOS: if a "Keychain Not Found" dialog offers **Reset To Defaults**, tell the user to click **Cancel**.

@@ -166,7 +166,7 @@ def check_update(ctx):
         "says_new_chat": "new chat" in last.lower(),
     }
     if state["is_mac"]:
-        out["keychain_warning"] = "always allow" in first.lower()
+        out["keychain_warning"] = "allow" in first.lower() and "always allow" not in first.lower()
     return out
 
 
