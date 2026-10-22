@@ -520,7 +520,7 @@ def case_run(args, number, base, services):
            "mcp_by_turn": [mcp[(marks[i - 1] if i else 0):m] for i, m in enumerate(marks)],
            "replies": replies, "truth": truth, "values": values, "files": files, "prompts": sent,
            "tool_inputs": [normalized(u) for u in uses], "db_tool_calls": [],
-           "truth_after": read_truth(url) if fixture == "own" and url else {}, "settled": settled,
+           "truth_after": read_truth(url) if fixture in ("own", "newbie") and url else {}, "settled": settled,
            "sent_bundles": sent_bundles(mcp),
            "state": hermes_runner.update_state(home, None, env, binary, before_yes, driver.skill_dir(home))
            if fixture == "seeded" else {}}

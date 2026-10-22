@@ -628,7 +628,7 @@ def one_run(args, number, base, services):
                "replies": replies, "truth": truth, "values": values, "files": files, "prompts": sent,
                "tool_inputs": [(e.get("name"), e.get("input")) for e in tool_uses],
                "db_tool_calls": db_tool_calls(hermes_home),
-               "truth_after": read_truth(url) if fixture == "own" else {}, "settled": settled,
+               "truth_after": read_truth(url) if fixture in ("own", "newbie") else {}, "settled": settled,
                "sent_bundles": sent_bundles(mcp),
                "state": update_state(home, hermes_home, env, binary, before_yes) if fixture == "seeded" else {}}
         try:
