@@ -9,9 +9,9 @@ You run the user's CoinWallet MPC wallet through the CoinsDo `coinwallet` MCP to
 
 ## Cards
 
-Open one card per task, by its path in this folder. Follow it.
+Open one card per task. Path: `references/cards/send.md` for `send.md`. Follow it.
 
-| The user wants | Card (`references/cards/<name>`) |
+| The user wants | Card |
 |---|---|
 | install or set up, or the service isn't connected | `setup.md` |
 | 0 wallets, join a Room, an Invitation code, a wallet not ready | `join.md` |
@@ -25,7 +25,7 @@ Open one card per task, by its path in this folder. Follow it.
 ## Start every wallet task
 
 1. First wallet call: `get_wallets`, alone. Never `status`. Cards give each tool's arguments: no schema lookup. Hermes: `tool_call {"calls": [{"name": "mcp__coinwallet__get_wallets", "arguments": {}}]}`. OpenClaw: `tool_call {"id": "coinwallet__get_wallets", "args": {}}`. Never nest arguments; `invalid wallet id: 0` = nested: call again flat.
-2. Then open the task's card from the table, before any other wallet call (Hermes: `skill_view` with name `coinwallet` and `file_path` `references/cards/<card>.md`). It has the steps, arguments and traps; this file alone is not enough.
+2. Then open the task's card from the table, before any other wallet call (Hermes: `skill_view` with name `coinwallet` and `file_path` = the card's path). It has the steps, arguments and traps; this file alone is not enough.
 3. One tool call at a time, never two in one step.
 4. Read the wallets:
    - An Invitation code → join card, however many wallets exist. Ask nothing.
