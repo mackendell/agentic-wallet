@@ -1,0 +1,1 @@
+{"case": "reject", "host": "hermes", "model": "deepseek/deepseek-v4.1-flash", "run": 1, "ok": false, "checks": {}, "void": "harness: a stray extra Hermes reject run from an older phone_round.sh instance I had not killed; stopped and its 2 XRP left to expire / rejected", "mcp_version": "v1.0.9", "date": "2026-10-22T10:59:08+0800", "calls": 0, "secs": 0, "tokens": 0, "budget": {}}
