@@ -6,6 +6,7 @@ Usage:
                                          (host: hermes, openclaw, claude-code, codex)
   python3 mcp.py start                   start the installed MCP once and wait until it answers
   python3 mcp.py check                   service starts, version >= minimum, get_wallets answers
+  python3 mcp.py check --no-tools        this chat has no coinwallet tools: who holds the service, what to do
   python3 mcp.py upgrade                 stop the running service, back up the data folder, install the newest tested
                                          MCP and start it right away; if it fails its check, fall back
   python3 mcp.py fallback                back up the data folder, reinstall the previous tested MCP on the same data
@@ -425,6 +426,84 @@ def running_pids(binary):
     return found
 
 
+HELD_SAY = {
+    "hermes-gateway": "Your Hermes gateway (the background Hermes for Telegram and the desktop app) is using the wallet"
+                      " service, so this chat has no wallet tools. Use a gateway chat, or stop the gateway with"
+                      " `hermes gateway stop` and then type /reload-mcp here. Ask the user before stopping the gateway.",
+    "hermes": "Another Hermes chat is using the wallet service, so this chat has no wallet tools. Close the other"
+              " Hermes chat, then type /reload-mcp here.",
+    "openclaw": "OpenClaw is using the wallet service, so this chat has no wallet tools. Close OpenClaw, then start"
+                " a new chat here.",
+    "claude-code": "A Claude Code session is using the wallet service, so this chat has no wallet tools. Close it,"
+                   " then start a new chat here.",
+    "codex": "A Codex session is using the wallet service, so this chat has no wallet tools. Close it, then start a"
+             " new chat here.",
+    "orphan": "An old copy of the wallet service is still running on its own, so this chat has no wallet tools."
+              " Restart the computer, then start a new chat.",
+    "other": "Another app is using the wallet service, so this chat has no wallet tools. Close it, then start a new"
+             " chat here.",
+}
+
+
+def process_row(pid):
+    """(parent pid, command) of a process, or None."""
+    try:
+        run = subprocess.run(["ps", "-ww", "-o", "ppid=,command=", "-p", str(pid)], capture_output=True, text=True,
+                             timeout=10)
+        ppid, _, command = run.stdout.strip().partition(" ")
+        if ppid.strip().isdigit():
+            return int(ppid), command.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    try:  # no ps: /proc
+        stat = Path("/proc/" + str(pid) + "/stat").read_text()
+        command = Path("/proc/" + str(pid) + "/cmdline").read_bytes().replace(b"\0", b" ").decode("utf-8", "replace")
+        return int(stat.rsplit(")", 1)[1].split()[1]), command.strip()
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def host_kind(command):
+    text = command.lower()
+    if "hermes" in text:
+        return "hermes-gateway" if "gateway" in text else "hermes"
+    for name in ("openclaw", "codex", "claude"):
+        if name in text:
+            return "claude-code" if name == "claude" else name
+    return None
+
+
+def service_holder(binary):
+    """Who runs the service: (kind, is_this_chat), or None if it isn't running.
+    Walks each service process's parents: this chat's own process → this chat; a known Host → that Host;
+    parent gone (pid 1) → "orphan", an old copy left running on its own."""
+    mine, pid = set(), os.getpid()
+    for _ in range(12):
+        mine.add(pid)
+        row = process_row(pid)
+        if not row or row[0] <= 1:
+            break
+        pid = row[0]
+    found = []
+    for service in running_pids(binary):
+        kind, pid = "orphan", service
+        for _ in range(8):
+            row = process_row(pid)
+            if not row or row[0] <= 1:
+                break
+            pid = row[0]
+            if pid in mine:
+                return None, True
+            parent = process_row(pid)
+            kind = (host_kind(parent[1]) if parent else None) or "other"
+            if kind != "other":
+                break
+        found.append(kind)
+    if not found:
+        return None
+    return (found[0] if len(found) == 1 else next((k for k in found if k != "orphan"), "orphan")), False
+
+
 def stop_running(binary):
     """Stop the Host's copy so the new version can open the data folder now (the Host starts it again in a new chat)."""
     pids = running_pids(binary)
@@ -556,8 +635,22 @@ def do_check(args):
     except Stop as stop:
         if stop.result != "running":
             raise
+        holder = service_holder(binary)
+        if holder and not holder[1]:  # another process holds the service: this chat can't get the wallet tools
+            out(result="held", version=vname(have), held_by=holder[0], say=HELD_SAY.get(holder[0], HELD_SAY["other"]))
+            return 2
+        if args.no_tools:
+            out(result="ok", version=vname(have), service="running in this Host",
+                say="The wallet service is running, but this chat has no wallet tools. Start a new chat"
+                    " (Hermes: type /reload-mcp), then ask again.")
+            return 0
         out(result="ok", version=vname(have), service="running in your Host",
             say="The wallet service is running. Report the failed tool's error to the user in one line and stop.")
+        return 0
+    if args.no_tools:  # it works, so the Host just hasn't loaded it into this chat
+        out(result="ok", version=vname(have), wallets=count,
+            say="The wallet service works, but this chat has no wallet tools. Start a new chat"
+                " (Hermes: type /reload-mcp), then ask again.")
         return 0
     out(result="ok", version=vname(have), environment=status.get("environmentName"), wallets=count)
     return 0
@@ -795,6 +888,8 @@ def main(argv=None):
         command.add_argument("--user", help=argparse.SUPPRESS)  # dev tests only: throwaway service account (-u)
         if name == "install":
             command.add_argument("--host", choices=HOSTS, help="print the register command for this Host")
+        if name == "check":
+            command.add_argument("--no-tools", action="store_true", help="this chat has no coinwallet tools: say why")
         if name in ("install", "upgrade", "fallback"):
             command.add_argument("--local-dir", help=argparse.SUPPRESS)  # dev tests only: pre-downloaded assets
     latest = sub.add_parser("latest")

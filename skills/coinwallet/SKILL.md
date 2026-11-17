@@ -35,7 +35,7 @@ Open one card per task. Path: `references/cards/send.md` for `send.md`. Follow i
    - 2+ `ONLINE` wallets → list the names and ask which one, once, before any address call. Ask the card's other missing pieces in the same message.
      Another address for a coin (address card) → skip this question.
    - Status `""`, `PENDING_CREATION` or `CREATED` → not ready: say what to finish in the App (join card). Never pick it.
-6. No `coinwallet` tools → say "The wallet service isn't connected." and open the setup card.
+6. No `coinwallet` tools → run `python3 <this skill folder>/scripts/mcp.py check --no-tools` once and tell the user its `say:` line. Nothing else: no logs, config or process lookups.
 
 Keep no memory (state file, Host memory): facts only from MCP replies and the user's words.
 

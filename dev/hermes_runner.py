@@ -38,6 +38,7 @@ Record: case, host, model, source, run, ok, checks, calls (Host tool calls), mcp
 """
 import argparse
 import json
+import signal
 import os
 import re
 import selectors
@@ -476,6 +477,23 @@ def service_stub(home):
     os.chmod(str(stub), 0o755)
 
 
+def gateway_holds(env, hermes_home, work):
+    """The coinwallet MCP entry fails to start (as when the service says "already running"), and a fake
+    "hermes gateway run" process holds a process named like the service, so `mcp.py check --no-tools` finds it."""
+    import atexit
+    run = subprocess.run([HERMES, "config", "set", "mcp_servers.coinwallet", json.dumps({"command": "/usr/bin/false"})],
+                         env=env, capture_output=True, text=True, timeout=60)
+    if run.returncode:
+        raise SystemExit("hermes config set failed: " + run.stdout + run.stderr)
+    base = Path(env["HOME"]) / "Library" / "Application Support" if IS_MAC else Path(env["HOME"]) / ".config"
+    stub = base / "coinsdo-wallet-mcp" / "coinwallet" / "service"
+    gateway = Path(work) / "hermes gateway run"
+    gateway.write_text('#!/bin/bash\n(exec -a "' + str(stub) + '" sleep 900) & wait\n', encoding="utf-8")
+    os.chmod(str(gateway), 0o755)
+    proc = subprocess.Popen([str(gateway)], start_new_session=True)
+    atexit.register(lambda: os.killpg(proc.pid, signal.SIGTERM))
+
+
 def preinstall(args, env, hermes_home, url, policy, hide, mcp_log, fail=()):
     """Skill installed and the coinwallet MCP server registered (through the proxy), as after a finished setup."""
     if args.source == "local":
@@ -577,6 +595,8 @@ def one_run(args, number, base, services):
         url = args.agenttest_url if fixture == "agenttest" else services[fixture].url
         policy = case.get("policy") or ("own" if fixture == "own" else "read")
         preinstall(args, env, hermes_home, url, policy, case.get("hide", []), mcp_log, case.get("fail", []))
+        if case.get("gateway_holds"):  # a Hermes gateway already holds the service: this chat gets no coinwallet tools
+            gateway_holds(env, hermes_home, work)
     truth = read_truth(url, "all" if case.get("balances") else ()) if url else {}
     if case.get("hide"):
         truth["wallets"] = [w for w in truth["wallets"] if w["walletId"] not in case["hide"]]
