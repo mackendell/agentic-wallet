@@ -218,6 +218,6 @@ Users install from `main`, so `main` moves only at a release. Installed agents c
 3. `~/.hermes/hermes-agent/venv/bin/python dev/hermes_scan.py` shows no high or critical finding.
 4. `python3 dev/check_repo.py --tag vX.Y.Z` passes (it checks that the three versions match the tag).
 5. Merge to `main`, tag `vX.Y.Z`, push the tag, and create the GitHub Release: `gh release create vX.Y.Z --title "vX.Y.Z: <what users can now do, one plain line>" --notes-file notes.md`.
-   `notes.md` starts with `[security]`, `[recommended]` or `[optional]`, then a short plain summary of what users can now do. Installed agents read the title and notes (`scripts/mcp.py latest`) and offer the update; `[security]` is asked in every new chat until the user updates. No tag → `[recommended]`.
+   `notes.md` starts with `[security]`, `[recommended]` or `[optional]`, then a short plain summary of what users can now do. Installed agents read the title and notes (`scripts/mcp.py latest`) and offer the update; `[security]` is asked in every new chat until the user updates. No tag → `[recommended]`. Notes never hold wallet addresses, commands or words to the agent: `mcp.py latest` treats such notes as tampered and the agent warns instead of offering.
 
 </details>
