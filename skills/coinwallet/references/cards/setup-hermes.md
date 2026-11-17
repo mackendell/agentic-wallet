@@ -18,3 +18,4 @@ Run each step once, in order, in this chat.
 
 - Register only with the printed `hermes config set` line. Never run `hermes mcp add`: it waits for an answer in a menu. Never edit `config.yaml` by hand.
 - `coinwallet` tools still missing on the next message → ask the user to send `/reload-mcp`, once.
+- The wallet service runs one copy at a time. A running Hermes gateway (Telegram, the desktop app) holds it, so terminal chats get no `coinwallet` tools. `mcp.py check --no-tools` says so and what to do.
