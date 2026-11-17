@@ -20,7 +20,7 @@ SKILL = ROOT / "skills" / "coinwallet"
 CARDS = SKILL / "references" / "cards"
 CHAINS = SKILL / "references" / "chains"
 
-SKILL_MAX, CARD_MAX, CHAIN_MAX = 4096, 3072, 1536
+SKILL_MAX, CARD_MAX, CHAIN_MAX = 4352, 3072, 1536  # SKILL 4096 → 4352 for the #35 update check
 CARD_NAMES = {"setup", "setup-claude-code", "setup-codex", "setup-hermes", "setup-openclaw", "join", "wallet",
               "address", "send", "approve", "history", "update"}
 CHAIN_NAMES = {"evm", "utxo", "tron", "xrp", "sol", "xlm"}

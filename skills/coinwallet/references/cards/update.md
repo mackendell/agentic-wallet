@@ -7,6 +7,7 @@ The user asked to update CoinWallet. One yes covers both: the skill and the wall
 1. Before any command, ask once, in one message: "Update CoinWallet now? This updates the skill and the wallet service, and restarts the service."
    On macOS (`uname -s` says `Darwin`) add this line to the same message: "A Mac popup will ask for your login password for "com.coinsdo.wallet.secure". Type your Mac login password and click **Allow**. Never click **Deny**. If a "Keychain Not Found" dialog offers **Reset To Defaults**, click **Cancel**."
 2. Wait for the answer; run nothing until then. Only a plain yes counts. No, or unclear → stop. Nothing is changed.
+   The user said yes to an update offer → that yes counts: on macOS send the Mac line alone, then step 3. A wallet service offer → step 3's second command only.
 3. Run your Host's two commands in the terminal, in order, exactly as written. The first updates the skill. The second backs up the MCP data folder, installs the newest tested service and starts it right away (it can take 2 minutes; wait for it).
    - Claude Code:
      `claude plugin marketplace update coinsdo && claude plugin update coinwallet@coinsdo`
