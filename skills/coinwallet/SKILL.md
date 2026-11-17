@@ -19,7 +19,7 @@ Open one card per task. Path: `references/cards/send.md` for `send.md`. Follow i
 | another, new or next address, add a token | `address.md` |
 | send, pay, transfer, or "done" after a send | `send.md` |
 | approve or reject a transfer the user started | `approve.md` |
-| transfer history, pending transfers | `history.md` |
+| transfer history, pending transfers, a transfer's date | `history.md` |
 | "update CoinWallet", in any language | `update.md` |
 
 ## Start every wallet task
