@@ -6,3 +6,5 @@ __pycache__/
 .scratch/
 ~$*.xlsx
 .claude/worktrees/
+research/
+*.xlsx

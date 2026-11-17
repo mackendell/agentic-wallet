@@ -20,10 +20,10 @@
 Asked when a transfer happened, or for transfers on a date → this section.
 
 1. Date asked → `get_transactions {walletId, pageIndex: 1, pageSize: 100}`; `total` over 100 → also `pageIndex: 2`, and on.
-2. Each `bundleId` holds its start time. Read all of them in one run, with the user's UTC offset (unknown → 0):
-   `python3 -c "import sys,datetime as d;z=d.timezone(d.timedelta(hours=float(sys.argv[1])));[print(i,d.datetime.fromtimestamp(((int(i)>>22)+1288834974657)/1000,z).strftime('%Y-%m-%d %H:%M UTC%z')) for i in sys.argv[2:]]" <offset> <bundleId> <bundleId>`
-   Pass each `bundleId` as the exact digits from the reply.
-3. Check the times: all in the past and after 2025; 2+ items not all the same. Pass → trust them. Fail → use no time; say "The App shows its time." (an `APPROVED` item: also "Its hash on a block explorer shows when it confirmed.")
+2. Each `bundleId` holds its start time. Read all of them in one run, with the user's UTC offset in hours (unknown → 0):
+   `python3 <this skill folder>/scripts/mcp.py when --utc <offset> <bundleId> <bundleId>`
+   Each `bundleId` as the exact digits from the reply. The command is blocked or errors → as `result: failed`.
+3. `result: ok` → use its times. `result: failed` → tell the user its `say:` line; an `APPROVED` item: also "Its hash on a block explorer shows when it confirmed."
 4. Reply with "started <time and zone>" on each line, newest first. Date asked → only items started that day; none → "No transfers on <date>. <wallet> has <total> in all."
 
 App 2.0.31: "Activity" in all languages. Pending: 待审批 / 待審批 / ja 未確認.

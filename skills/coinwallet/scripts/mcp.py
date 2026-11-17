@@ -9,12 +9,14 @@ Usage:
   python3 mcp.py upgrade                 stop the running service, back up the data folder, install the newest tested
                                          MCP and start it right away; if it fails its check, fall back
   python3 mcp.py fallback                back up the data folder, reinstall the previous tested MCP on the same data
+  python3 mcp.py when --utc 8 <bundleId>...   start time of each transfer, read from its bundleId (no network)
 
 macOS and Linux only. Python 3.9+, standard library only.
 Output is plain "key: value" lines. Exit code 0 = ok (result: ok or fallback), 1 = failed, 2 = the user must act.
 """
 
 import argparse
+import datetime
 import hashlib
 import json
 import os
@@ -604,6 +606,32 @@ def do_fallback(args):
     return go_back(binary, have, "asked by the user", args, None)
 
 
+SNOWFLAKE_EPOCH_MS = 1288834974657  # bundleId is a Snowflake ID: (id >> 22) + this = creation time in ms
+
+
+def do_when(args):
+    """Start time of each transfer from its bundleId. The ID format is CoinsDo's, undocumented: sanity-check it."""
+    zone = datetime.timezone(datetime.timedelta(hours=args.utc))
+    now = datetime.datetime.now(datetime.timezone.utc)
+    times = []
+    for bundle in args.ids:
+        if not bundle.isdigit():
+            raise Stop("failed", "Not a transfer ID: " + bundle + ". Copy bundleId exactly from the transfer list.")
+        times.append(datetime.datetime.fromtimestamp(((int(bundle) >> 22) + SNOWFLAKE_EPOCH_MS) / 1000, zone))
+    if any(t > now or t.year < 2025 for t in times) or (len(times) > 1 and len(set(times)) == 1):
+        raise Stop("failed", "The time can't be read from these transfer IDs. The App shows each transfer's time.")
+    for bundle, when in zip(args.ids, times):
+        print(bundle + ": " + when.strftime("%Y-%m-%d %H:%M") + " " + zone_name(args.utc))
+    out(result="ok")
+    return 0
+
+
+def zone_name(hours):
+    sign = "+" if hours >= 0 else "-"
+    h, m = divmod(round(abs(hours) * 60), 60)
+    return "UTC" + sign + str(h) + (":%02d" % m if m else "")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="mcp.py", description="CoinWallet MCP service setup.")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -614,7 +642,17 @@ def main(argv=None):
             command.add_argument("--host", choices=HOSTS, help="print the register command for this Host")
         if name in ("install", "upgrade", "fallback"):
             command.add_argument("--local-dir", help=argparse.SUPPRESS)  # dev tests only: pre-downloaded assets
+    when = sub.add_parser("when")
+    when.add_argument("--utc", type=float, default=0.0, help="the user's UTC offset in hours, e.g. 8 or -5 or 5.5")
+    when.add_argument("ids", nargs="+", help="bundleId of each transfer, exact digits")
     args = parser.parse_args(argv)
+    if args.command == "when":  # pure math: no service, no account
+        try:
+            return do_when(args)
+        except Stop as stop:
+            out(result=stop.result, **stop.extra)
+            out(say=stop.say)
+            return stop.code
     # Dev test runs only: a throwaway service account so the real keychain item is never used.
     args.user = args.user or os.environ.get("COINWALLET_TEST_USER") or None
     try:

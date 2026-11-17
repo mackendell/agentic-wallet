@@ -642,6 +642,26 @@ def check_history(ctx):
     return out
 
 
+def check_history_date(ctx):
+    """History card "When": start times decoded from bundleId (no time field), shown in the asked zone (UTC+8)."""
+    import datetime as dt
+    reply = ctx["replies"][-1]
+    txs = ctx["truth"]["txs"].get(1, [])
+    zone = dt.timezone(dt.timedelta(hours=8))
+    times = [dt.datetime.fromtimestamp(((int(t["bundleId"]) >> 22) + 1288834974657) / 1000, zone) for t in txs]
+    gets = calls(ctx, "get_transactions")
+    out = common(ctx)
+    out["used_mcp_when"] = any(t[0] == "terminal" and "mcp.py" in str(t[1]) and " when " in str(t[1])
+                               for t in ctx["tool_inputs"])
+    out["no_file_writes"] = not [t for t in ctx["tool_inputs"] if t[0] in ("write_file", "patch")]
+    out.update({"no_status_filter": bool(gets) and all("status" not in g["arguments"] for g in gets),
+                "times_shown": bool(times) and all(x.strftime("%H:%M") in reply for x in times),
+                "hashes_shown": all(t["txHash"] in reply for t in txs if t.get("txHash")),
+                "no_browsing": not [n for n, _ in ctx["tool_inputs"] if n.startswith(("web_", "browser"))],
+                "nothing_sent": not (set(mcp_names(ctx)) & SEND_TOOLS)})
+    return out
+
+
 def check_token(ctx):
     """Case 10: a token on the address but not in the wallet. Hermes rejects get_protocols ("1|2" schema) → one plain
     line and stop. A Host that lets it through → add_currency with the user's contract, add_address, App approval."""
@@ -838,6 +858,9 @@ CASES = {
     "history": {"lang": "en", "card": "history", "fixture": "agenttest", "hide": [2], "budget": from_runs(4, 72, 87, budget("history")),
                 "check": check_history, "note": "case 9: history: statuses as-is, hashes in full, no status filter",
                 "turns": ["Show my CoinWallet transfer history."]},
+    "history-date": {"lang": "en", "card": "history", "fixture": "agenttest", "hide": [2], "budget": from_runs(6, 25, 113, budget("history", 1)),
+                     "check": check_history_date, "note": "history card When: start time from bundleId, UTC+8, no explorer",
+                     "turns": ["Which CoinWallet transfers did I make on 19 October 2026? I'm in UTC+8."]},
     "token": {"lang": "en", "card": "send", "fixture": "own", "policy": "send", "budget": from_runs(6, 45, 137, plus("send", "address")),
               "check": check_token,
               "note": "case 10: a fresh ERC20 minted on Sepolia to the wallet → Hermes stops at get_protocols with one line",
