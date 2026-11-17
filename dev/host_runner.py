@@ -43,7 +43,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import hermes_runner  # noqa: E402
 from hermes_runner import (AGENTTEST_URL, PROXY, SKILL_PATH, NeedsHuman, RunningService, ThrowawayService, newbie_service, service_stub,  # noqa: E402
                            human_value, openrouter_key, probe_entry, read_log, read_truth, sent_bundles, wait_settled)
-from test_cases import CASES, HOOKS  # noqa: E402
+from test_cases import CASES, HOOKS, release_url  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 REAL_HOME = Path.home()
@@ -460,6 +460,7 @@ def case_run(args, number, base, services):
     target = str(ROOT) if args.source == "local" else args.repo
     run_dir, home, bin_dir, work = make_run_dir(base, args.host, target)
     env = run_env(args.host, home, bin_dir, user)
+    env["COINWALLET_RELEASE_URL"] = release_url(home, CASES[args.case].get("release"))  # #35: never real GitHub
     driver = HOSTS[args.host](args, number)
     values = dict(case.get("values", {}))
     values.update(dict(item.split("=", 1) for item in (args.set or [])))
@@ -559,6 +560,7 @@ def one_run(args, number, base):
     target = str(ROOT) if args.source == "local" else args.repo
     run_dir, home, bin_dir, work = make_run_dir(base, args.host, target)
     env = run_env(args.host, home, bin_dir, user)
+    env["COINWALLET_RELEASE_URL"] = release_url(home, CASES[args.case].get("release"))  # #35: never real GitHub
     driver = HOSTS[args.host](args, number)
     source = str(ROOT / "README.md") if args.source == "local" else "https://github.com/" + args.repo
     prompts = [p.format(source=source) for p in CASES[args.case]["turns"]] + list(args.reply or [])

@@ -211,12 +211,13 @@ Re-check each chain file's `Checked:` date now and then.
 <details>
 <summary>Release</summary>
 
-Users install from `main`, so `main` moves only at a release.
+Users install from `main`, so `main` moves only at a release. Work on a branch; Codex re-pulls `main` every time it starts.
 
 1. Set the same `X.Y.Z` in `skills/coinwallet/VERSION`, `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`.
 2. Every must-pass Host × model passes the Test plan.
 3. `~/.hermes/hermes-agent/venv/bin/python dev/hermes_scan.py` shows no high or critical finding.
 4. `python3 dev/check_repo.py --tag vX.Y.Z` passes (it checks that the three versions match the tag).
-5. Merge to `main`, tag `vX.Y.Z`, push the tag, and write GitHub Release notes (`gh release create vX.Y.Z`).
+5. Merge to `main`, tag `vX.Y.Z`, push the tag, and create the GitHub Release: `gh release create vX.Y.Z --title "vX.Y.Z: <what users can now do, one plain line>" --notes-file notes.md`.
+   `notes.md` starts with `[security]`, `[recommended]` or `[optional]`, then a short plain summary of what users can now do. Installed agents read the title and notes (`scripts/mcp.py latest`) and offer the update; `[security]` is asked in every new chat until the user updates. No tag → `[recommended]`.
 
 </details>

@@ -60,7 +60,7 @@ HERMES_PY = HERMES_AGENT / "venv" / "bin" / "python"
 
 sys.path.insert(0, str(ROOT / "dev"))
 from mcp_proxy import HttpMcp  # noqa: E402
-from test_cases import CASES, HOOKS  # noqa: E402
+from test_cases import CASES, HOOKS, release_url  # noqa: E402
 
 PROXY = ROOT / "dev" / "mcp_proxy.py"
 AGENTTEST_URL = "http://127.0.0.1:18534/mcp"  # the read-only fixture service (-u cwr-fix34, HTTP), read tools only
@@ -561,6 +561,7 @@ def one_run(args, number, base, services):
     user = "cwr-" + time.strftime("%Y%m%d%H%M%S") + "-" + str(number)
     run_dir, home, hermes_home, bin_dir, work = make_run_dir(base, args.model, args.source, args.repo)
     env = run_env(home, hermes_home, bin_dir, user)
+    env["COINWALLET_RELEASE_URL"] = release_url(home, CASES[args.case].get("release"))  # #35: never real GitHub
     # local: the README file stands in for the GitHub landing page (which shows the README).
     source = str(ROOT / "README.md") if args.source == "local" else "https://github.com/" + args.repo
     values = dict(case.get("values", {}))
