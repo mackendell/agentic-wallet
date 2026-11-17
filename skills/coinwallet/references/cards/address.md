@@ -25,6 +25,7 @@ Traps:
 - Use the `currencyId` from `add_currency`; no `search_*` tool. Take the `addressId` only from `get_addresses`.
 - `add_address` for a token reuses the Chain's first address, so tokens already there become sendable.
 - Asked while waiting → step 7; no new `add_address`.
+- `add_address` reply `"success": 1`, `"pending": 0` (a new native coin, e.g. XLM): added at once, no App approval. Skip steps 6–7.
 
 App 2.0.31 buttons for this approval ("Activity" in all languages):
 
