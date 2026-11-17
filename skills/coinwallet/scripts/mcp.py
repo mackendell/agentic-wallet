@@ -607,7 +607,7 @@ def do_fallback(args):
     return go_back(binary, have, "asked by the user", args, None)
 
 
-RELEASES_REPO = "CoinsDo/agentic-wallet"  # where users install the skill from; its GitHub "latest release" is the newest
+RELEASES_REPO = "mackendell/agentic-wallet"  # releases live here until go-live; then "CoinsDo/agentic-wallet" (README Release)
 LATEST_URL = "https://api.github.com/repos/{repo}/releases/latest"
 NOTES_MAX = 600
 IMPORTANCE = ("security", "recommended", "optional")

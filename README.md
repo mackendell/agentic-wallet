@@ -211,7 +211,7 @@ Re-check each chain file's `Checked:` date now and then.
 <details>
 <summary>Release</summary>
 
-Users install from `main`, so `main` moves only at a release. Work on a branch; Codex re-pulls `main` every time it starts.
+Users install from `main`, so `main` moves only at a release. Installed agents check for new releases at `RELEASES_REPO` in `skills/coinwallet/scripts/mcp.py` (now `mackendell/agentic-wallet`): at go-live, publish one last release here that sets it to `CoinsDo/agentic-wallet`, so installs from here find the new home. Work on a branch; Codex re-pulls `main` every time it starts.
 
 1. Set the same `X.Y.Z` in `skills/coinwallet/VERSION`, `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`.
 2. Every must-pass Host × model passes the Test plan.
