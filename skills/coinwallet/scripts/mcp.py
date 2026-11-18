@@ -401,6 +401,38 @@ def register_command(host, binary, user):
     return None
 
 
+def on_hermes():
+    """This skill copy is a Hermes install (HERMES_HOME/skills/coinwallet)."""
+    home = Path(os.environ.get("HERMES_HOME") or Path.home() / ".hermes").resolve()
+    return home in SKILL_DIR.parents
+
+
+def ensure_hermes_autoload():
+    """Hermes skips a skill it isn't sure it needs (#36): put coinwallet in skills.auto_load so every new session
+    (CLI, gateway, cron) starts with it. Keeps the user's other entries; never overwrites a list it can't read."""
+    hermes = shutil.which("hermes")
+    if not hermes:
+        return "skipped (hermes not on PATH)"
+    try:
+        run = subprocess.run([hermes, "config", "get", "skills.auto_load", "--json"], capture_output=True, text=True,
+                             timeout=60)
+        current = json.loads(run.stdout) if run.returncode == 0 and run.stdout.strip() else []
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return "skipped (could not read skills.auto_load)"
+    if current is None:
+        current = []
+    if not isinstance(current, list):
+        return "skipped (skills.auto_load is not a list)"
+    if SERVER_NAME in current:
+        return "already on"
+    try:
+        run = subprocess.run([hermes, "config", "set", "skills.auto_load", json.dumps(current + [SERVER_NAME])],
+                             capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        return "skipped (could not set skills.auto_load)"
+    return "added (new sessions start with the coinwallet skill)" if run.returncode == 0 else "skipped (set failed)"
+
+
 # ---------- upgrade and fallback ----------
 
 def running_pids(binary):
@@ -604,6 +636,8 @@ def do_install(args):
         out(master_key=key, say="Tell the user once: Never delete or replace the master key file " + str(key)
             + " or the MCP data folder: the key pairs with the agent's key shard. Moving to a new server means a new "
             "wallet Room.")
+    if args.host == "hermes":
+        out(autoload=ensure_hermes_autoload())
     command = register_command(args.host, binary, args.user) if args.host else None
     if command:
         out(next="run the register command below once, exactly as printed", register=command)
@@ -659,6 +693,8 @@ def do_check(args):
 
 def do_upgrade(args):
     _minimum, tested = load_tested()
+    if on_hermes():
+        out(autoload=ensure_hermes_autoload())
     newest = max(tested)
     binary = binary_path()
     have = installed_version(binary)

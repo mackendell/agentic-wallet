@@ -131,7 +131,9 @@ hermes skills install CoinsDo/agentic-wallet/skills/coinwallet --yes
 
 Then ask: "Set up the CoinWallet service."
 
-Uninstall (read the warning below first):
+Setup adds `coinwallet` to `skills.auto_load` in Hermes' config, so every new chat (terminal, gateway, cron) starts with the skill loaded. Without it, Hermes sometimes answers wallet questions without reading the skill.
+
+Uninstall (read the warning below first; also remove `coinwallet` from `skills.auto_load`):
 
 ```sh
 hermes config unset mcp_servers.coinwallet
