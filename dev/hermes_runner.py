@@ -510,6 +510,11 @@ def preinstall(args, env, hermes_home, url, policy, hide, mcp_log, fail=()):
     for tool in fail:
         proxy_args += ["--fail-tool", tool]
     service_stub(env["HOME"])
+    # as `mcp.py install --host hermes` does (#36): every session starts with the coinwallet skill loaded
+    run = subprocess.run([HERMES, "config", "set", "skills.auto_load", json.dumps(["coinwallet"])], env=env,
+                         capture_output=True, text=True, timeout=60)
+    if run.returncode:
+        raise SystemExit("hermes config set skills.auto_load failed: " + run.stdout + run.stderr)
     entry = json.dumps({"command": sys.executable, "args": proxy_args})
     run = subprocess.run([HERMES, "config", "set", "mcp_servers.coinwallet", entry], env=env,
                          capture_output=True, text=True, timeout=60)
