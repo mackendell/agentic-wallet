@@ -6,6 +6,7 @@ Usage:
                                          (host: hermes, openclaw, claude-code, codex)
   python3 mcp.py start                   start the installed MCP once and wait until it answers
   python3 mcp.py check                   service starts, version >= minimum, get_wallets answers
+  python3 mcp.py version                 this skill's version (no network, no service)
   python3 mcp.py check --no-tools        this chat has no coinwallet tools: who holds the service, what to do
   python3 mcp.py upgrade                 stop the running service, back up the data folder, install the newest tested
                                          MCP and start it right away; if it fails its check, fall back
@@ -892,12 +893,17 @@ def main(argv=None):
             command.add_argument("--no-tools", action="store_true", help="this chat has no coinwallet tools: say why")
         if name in ("install", "upgrade", "fallback"):
             command.add_argument("--local-dir", help=argparse.SUPPRESS)  # dev tests only: pre-downloaded assets
+    sub.add_parser("version")
     latest = sub.add_parser("latest")
     latest.add_argument("--decline", help="the user said no to this version: never offer it again (unless security)")
     when = sub.add_parser("when")
     when.add_argument("--utc", type=float, default=0.0, help="the user's UTC offset in hours, e.g. 8 or -5 or 5.5")
     when.add_argument("ids", nargs="+", help="bundleId of each transfer, exact digits")
     args = parser.parse_args(argv)
+    if args.command == "version":
+        mine = skill_version()
+        out(skill=vname(mine) if mine else "unknown")
+        return 0
     if args.command == "latest":  # never fails or blocks a wallet task
         try:
             return do_latest(args)

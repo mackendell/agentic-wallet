@@ -1,6 +1,6 @@
 ---
 name: coinwallet
-description: "Read first, before any coinwallet tool: args, rules, traps. Invitation code, address, balance, send. CoinWallet: set up the CoinsDo wallet, join a wallet Room, show addresses and balances, add a token, send and approve transfers, show transfer history."
+description: "Read first, before any coinwallet tool: args, rules, traps. Invitation code, address, balance, send. CoinWallet: set up the CoinsDo wallet, join a wallet Room, show addresses and balances, add a token, send and approve transfers, show transfer history, service status and version."
 ---
 
 # CoinWallet
@@ -21,6 +21,7 @@ Open one card per task. Path: `references/cards/send.md` for `send.md`. Follow i
 | approve or reject a transfer the user started | `approve.md` |
 | transfer history, pending transfers, a transfer's date | `history.md` |
 | "update CoinWallet", in any language | `update.md` |
+| service status or version | `update.md` |
 
 ## Start every wallet task
 
