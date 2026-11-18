@@ -11,7 +11,7 @@
 把下面這句話原封不動貼到智能體的聊天框（Claude Code、Codex、Hermes 或 OpenClaw 都可以）：
 
 ```text
-Install the CoinWallet skill from https://github.com/CoinsDo/agentic-wallet
+Install the CoinWallet skill from https://github.com/mackendell/agentic-wallet
 ```
 
 ## 怎麼用
@@ -61,7 +61,7 @@ Install the CoinWallet skill from https://github.com/CoinsDo/agentic-wallet
 安裝：
 
 ```sh
-claude plugin install coinwallet --marketplace CoinsDo/agentic-wallet
+claude plugin install coinwallet --marketplace mackendell/agentic-wallet
 ```
 
 然後開一個新聊天，問：「Set up the CoinWallet service.」
@@ -81,7 +81,7 @@ claude plugin marketplace remove coinsdo
 安裝：
 
 ```sh
-codex plugin marketplace add CoinsDo/agentic-wallet && codex plugin add coinwallet@coinsdo
+codex plugin marketplace add mackendell/agentic-wallet && codex plugin add coinwallet@coinsdo
 ```
 
 然後開一個新聊天，問：「Set up the CoinWallet service.」
@@ -101,7 +101,7 @@ codex plugin remove coinwallet@coinsdo && codex plugin marketplace remove coinsd
 安裝：
 
 ```sh
-hermes skills install CoinsDo/agentic-wallet/skills/coinwallet --yes
+hermes skills install mackendell/agentic-wallet/skills/coinwallet --yes
 ```
 
 然後問：「Set up the CoinWallet service.」
@@ -121,7 +121,7 @@ hermes skills uninstall coinwallet --yes
 安裝：
 
 ```sh
-openclaw plugins install coinwallet --marketplace CoinsDo/agentic-wallet --force --accept-capabilities
+openclaw plugins install coinwallet --marketplace mackendell/agentic-wallet --force --accept-capabilities
 ```
 
 然後問：「Set up the CoinWallet service.」
