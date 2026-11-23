@@ -542,6 +542,22 @@ class McpCli(unittest.TestCase):
         self.assertTrue(any(box.data_dir().glob(".data/**/*.db")))  # data left as is
 
 
+    @unittest.skipUnless(IS_MAC, "macOS keychain")
+    def test_mac_changed_keychain_item_says_mismatch_not_locked(self):
+        box = self.box()
+        code, _, text = box.mcp("install")
+        self.assertEqual(code, 0, text)
+        # Only this run's throwaway account (USER) is changed: what a reset or replaced keychain item looks like.
+        subprocess.run(["security", "add-generic-password", "-U", "-s", "com.coinsdo.wallet.secure", "-a", USER,
+                        "-w", os.urandom(16).hex()], check=True, capture_output=True)
+        code, lines, text = box.mcp("start")
+        self.assertNotEqual(code, 0, text)
+        self.assertEqual(lines.get("result"), "failed", text)
+        self.assertIn("does not match", lines["say"])
+        self.assertNotIn("keychain is locked", lines["say"])
+        self.assertTrue(any(box.data_dir().glob(".data/**/*.db")))  # data left as is
+
+
 if __name__ == "__main__":
     print("service account for this run:", USER, file=sys.stderr)
     unittest.main(verbosity=2)
