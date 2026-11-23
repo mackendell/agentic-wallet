@@ -234,6 +234,21 @@ def download(version, expected_sha, binary, local_dir=None, source_file=None):
 
 # ---------- talking to the service ----------
 
+def keychain_unlocked():
+    """True only when macOS says the default keychain is unlocked. Reads lock state, never a secret."""
+    try:
+        import ctypes
+        import ctypes.util
+        sec = ctypes.CDLL(ctypes.util.find_library("Security"))
+        keychain, status = ctypes.c_void_p(), ctypes.c_uint32()
+        if sec.SecKeychainCopyDefault(ctypes.byref(keychain)) != 0:
+            return False
+        ok = sec.SecKeychainGetStatus(keychain, ctypes.byref(status)) == 0
+        return ok and bool(status.value & 1)  # kSecUnlockStateStatus
+    except (OSError, AttributeError):
+        return False
+
+
 def explain_exit(stderr_text):
     text = stderr_text or ""
     if "already running" in text:
@@ -248,6 +263,11 @@ def explain_exit(stderr_text):
         return Stop("needs_user", "The Mac keychain popup cannot show here (no desktop session). Start the service "
                     "from the Host in your logged-in Mac desktop session.", 2)
     if "ErrLocalPasswordError" in text or "fingerprint" in text.lower():
+        if is_mac() and keychain_unlocked():
+            return Stop("failed", "The Mac keychain is unlocked, but its wallet key does not match the wallet data in "
+                        + str(data_dir()) + ". Running start again will not help. Stop here and tell the user. "
+                        "Never run -clean-data, never reinstall with -r, and never delete or change the keychain item "
+                        "com.coinsdo.wallet.secure: that loses the agent's key shard.")
         hint = ("the Mac keychain is locked: log in to the Mac (unlock the keychain)" if is_mac()
                 else "the master key file is missing or changed: put the original key file back")
         return Stop("needs_user", "The service cannot open its secure storage: " + hint + ", then run start again. "
