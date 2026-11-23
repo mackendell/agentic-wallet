@@ -609,7 +609,7 @@ def main():
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--model", help="default: openclaw deepseek/deepseek-v4-flash, claude-code sonnet, codex its own")
     parser.add_argument("--source", choices=("github", "local"), default="github")
-    parser.add_argument("--repo", default="mackendell/agentic-wallet")
+    parser.add_argument("--repo", default="CoinsDo/agentic-wallet")
     parser.add_argument("--reply", action="append", help="fixed scripted reply for the next turn (repeatable)")
     parser.add_argument("--set", action="append", help="KEY=VALUE for the case's turns, e.g. wallet=my-test")
     parser.add_argument("--agenttest-url", default=AGENTTEST_URL)

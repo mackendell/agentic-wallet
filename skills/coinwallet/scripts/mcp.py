@@ -737,7 +737,7 @@ def do_fallback(args):
     return go_back(binary, have, "asked by the user", args, None)
 
 
-RELEASES_REPO = "mackendell/agentic-wallet"  # releases live here until go-live; then "CoinsDo/agentic-wallet" (README Release)
+RELEASES_REPO = "CoinsDo/agentic-wallet"
 LATEST_URL = "https://api.github.com/repos/{repo}/releases?per_page=30"  # newest first
 NOTES_MAX = 600
 IMPORTANCE = ("security", "recommended", "optional")

@@ -12,7 +12,7 @@ the login keychain) and the MCP service runs under a throwaway account (COINWALL
 real keychain items are never used. Each macOS run leaves one test keychain item (empty test wallet).
 
 --source github: the agent gets the README sentence with the repo swapped to --repo (default
-  mackendell/agentic-wallet); `hermes skills install CoinsDo/agentic-wallet/...` is redirected to --repo.
+  CoinsDo/agentic-wallet); `hermes skills install CoinsDo/agentic-wallet/...` is redirected to --repo.
 --source local: the agent gets "Install the CoinWallet skill from <this checkout>/README.md"; `hermes skills install
   */agentic-wallet/skills/coinwallet` installs this checkout through Hermes' real install code
   (dev/hermes_local_install.py: same quarantine, scan and install path, only the GitHub fetch replaced).
@@ -695,7 +695,7 @@ def main():
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--model", default="deepseek/deepseek-v4-flash")
     parser.add_argument("--source", choices=("github", "local"), default="github")
-    parser.add_argument("--repo", default="mackendell/agentic-wallet")
+    parser.add_argument("--repo", default="CoinsDo/agentic-wallet")
     parser.add_argument("--reply", action="append", help="extra scripted reply after the case's turns (repeatable)")
     parser.add_argument("--set", action="append", help="KEY=VALUE for the case's turns, e.g. wallet=my-test")
     parser.add_argument("--agenttest-url", default=AGENTTEST_URL)

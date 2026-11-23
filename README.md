@@ -11,7 +11,7 @@ Let your AI agent hold and send crypto in a CoinWallet MPC wallet. You approve e
 Paste this into your agent's chat (Claude Code, Codex, Hermes or OpenClaw):
 
 ```text
-Install the CoinWallet skill from https://github.com/mackendell/agentic-wallet
+Install the CoinWallet skill from https://github.com/CoinsDo/agentic-wallet
 ```
 
 ## Install steps
@@ -86,7 +86,7 @@ You don't need this if the agent installed it for you. Open your Host:
 Install:
 
 ```sh
-claude plugin install coinwallet --marketplace mackendell/agentic-wallet
+claude plugin install coinwallet --marketplace CoinsDo/agentic-wallet
 ```
 
 Then open a new chat and ask: "Set up the CoinWallet service."
@@ -106,7 +106,7 @@ claude plugin marketplace remove coinsdo
 Install:
 
 ```sh
-codex plugin marketplace add mackendell/agentic-wallet && codex plugin add coinwallet@coinsdo
+codex plugin marketplace add CoinsDo/agentic-wallet && codex plugin add coinwallet@coinsdo
 ```
 
 Then open a new chat and ask: "Set up the CoinWallet service."
@@ -126,7 +126,7 @@ codex plugin remove coinwallet@coinsdo && codex plugin marketplace remove coinsd
 Install:
 
 ```sh
-hermes skills install mackendell/agentic-wallet/skills/coinwallet --yes
+hermes skills install CoinsDo/agentic-wallet/skills/coinwallet --yes
 ```
 
 Then ask: "Set up the CoinWallet service."
@@ -148,7 +148,7 @@ hermes skills uninstall coinwallet --yes
 Install:
 
 ```sh
-openclaw plugins install coinwallet --marketplace mackendell/agentic-wallet --force --accept-capabilities
+openclaw plugins install coinwallet --marketplace CoinsDo/agentic-wallet --force --accept-capabilities
 ```
 
 Then ask: "Set up the CoinWallet service."
@@ -213,7 +213,7 @@ Re-check each chain file's `Checked:` date now and then.
 <details>
 <summary>Release</summary>
 
-Users install from `main`, so `main` moves only at a release. Installed agents check for new releases at `RELEASES_REPO` in `skills/coinwallet/scripts/mcp.py` (now `mackendell/agentic-wallet`): at go-live, publish one last release here that sets it to `CoinsDo/agentic-wallet`, so installs from here find the new home, and switch the install links in all 4 READMEs to CoinsDo. Work on a branch; Codex re-pulls `main` every time it starts.
+Users install from `main`, so `main` moves only at a release. Installed agents check for new releases at `RELEASES_REPO` in `skills/coinwallet/scripts/mcp.py` (`CoinsDo/agentic-wallet`). Installs made from the old `mackendell/agentic-wallet` reach this repo through GitHub's redirect from the transfer, so never create a new repo named `mackendell/agentic-wallet`. Work on a branch; Codex re-pulls `main` every time it starts.
 
 1. Set the same `X.Y.Z` in `skills/coinwallet/VERSION`, `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json`.
 2. Every must-pass Host × model passes the Test plan.

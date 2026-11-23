@@ -16,7 +16,7 @@ sys.path.insert(0, str(agent_dir))
 from tools.skills_guard import format_scan_report, scan_skill  # noqa: E402
 
 skill = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "skills" / "coinwallet"
-result = scan_skill(skill, source="mackendell/agentic-wallet")
+result = scan_skill(skill, source="CoinsDo/agentic-wallet")
 print(format_scan_report(result))
 bad = [f for f in result.findings if f.severity in ("high", "critical")]
 print("verdict:", result.verdict, "| trust:", result.trust_level, "| high/critical:", len(bad))

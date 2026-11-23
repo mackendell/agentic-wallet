@@ -11,7 +11,7 @@ AI エージェントが CoinWallet の MPC ウォレットで暗号資産を受
 次の一文をそのまま、エージェントのチャットに貼り付けてください（Claude Code、Codex、Hermes、OpenClaw のどれでも使えます）。
 
 ```text
-Install the CoinWallet skill from https://github.com/mackendell/agentic-wallet
+Install the CoinWallet skill from https://github.com/CoinsDo/agentic-wallet
 ```
 
 ## 使い方
@@ -63,7 +63,7 @@ Install the CoinWallet skill from https://github.com/mackendell/agentic-wallet
 インストール：
 
 ```sh
-claude plugin install coinwallet --marketplace mackendell/agentic-wallet
+claude plugin install coinwallet --marketplace CoinsDo/agentic-wallet
 ```
 
 そのあと新しいチャットを開いて、「Set up the CoinWallet service.」と頼みます。
@@ -83,7 +83,7 @@ claude plugin marketplace remove coinsdo
 インストール：
 
 ```sh
-codex plugin marketplace add mackendell/agentic-wallet && codex plugin add coinwallet@coinsdo
+codex plugin marketplace add CoinsDo/agentic-wallet && codex plugin add coinwallet@coinsdo
 ```
 
 そのあと新しいチャットを開いて、「Set up the CoinWallet service.」と頼みます。
@@ -103,7 +103,7 @@ codex plugin remove coinwallet@coinsdo && codex plugin marketplace remove coinsd
 インストール：
 
 ```sh
-hermes skills install mackendell/agentic-wallet/skills/coinwallet --yes
+hermes skills install CoinsDo/agentic-wallet/skills/coinwallet --yes
 ```
 
 そのあと「Set up the CoinWallet service.」と頼みます。
@@ -123,7 +123,7 @@ hermes skills uninstall coinwallet --yes
 インストール：
 
 ```sh
-openclaw plugins install coinwallet --marketplace mackendell/agentic-wallet --force --accept-capabilities
+openclaw plugins install coinwallet --marketplace CoinsDo/agentic-wallet --force --accept-capabilities
 ```
 
 そのあと「Set up the CoinWallet service.」と頼みます。
